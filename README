@@ -5,14 +5,13 @@ CPU features that might not have kernel support yet.
 
 Included:
   core2-prefetch : disable prefetching on Core2 processors
+  cortex-a9-config : reads config info on Cortex A9
   r12k-brpred : set values for MIPS R12000 branch predictors
   rapl-read   : read x86 RAPL power/energy info
   rasp-pi-pmu : tests performance counters on raspberry pi ARM 1176
 
 TODO:
   rasp-pi-cache : set cache values on raspberry pi ARM 1176 processor
-  cortex-a9-config : read out TLB and Cache config from Cortex A9
-
 
 Vince Weaver
 vincent.weaver@maine.edu
