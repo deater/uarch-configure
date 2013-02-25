@@ -1,0 +1,14 @@
+COUNTER_OVERHEAD: vendor 0, family 6, model 45, stepping 6
+COUNTER_OVERHEAD: NITER == 64
+COUNTER_OVERHEAD: loop overhead is 369 cycles
+COUNTER_OVERHEAD: rdtsc cost is 21.4 cycles (1743 total)
+COUNTER_OVERHEAD: rdpmc cost is 32.2 cycles (2436 total)
+COUNTER_OVERHEAD: rdmsr (counter) cost is 103.9 cycles (7020 total)
+COUNTER_OVERHEAD: rdmsr (evntsel) cost is 107.2 cycles (7233 total)
+COUNTER_OVERHEAD: wrmsr (counter) cost is 170.0 cycles (11250 total)
+COUNTER_OVERHEAD: wrmsr (evntsel) cost is 153.7 cycles (10206 total)
+COUNTER_OVERHEAD: read cr4 cost is 7.5 cycles (849 total)
+COUNTER_OVERHEAD: write cr4 cost is 114.7 cycles (7710 total)
+COUNTER_OVERHEAD: sync_core cost is 278.6 cycles (18204 total)
+COUNTER_OVERHEAD: read fixed_ctr0 cost is 29.1 cycles (2235 total)
+COUNTER_OVERHEAD: wrmsr fixed_ctr_ctrl cost is 165.4 cycles (10959 total)

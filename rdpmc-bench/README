@@ -1,0 +1,15 @@
+This is a kernel module that will test the speed of various
+performance counter msrs.
+
+It is based heavily on the perfctr-2.6 code by
+Mikael Pettersson.
+
+http://user.it.uu.se/~mikpe/linux/perfctr/
+
+I mainly have this together to advance the cause
+of a patch that uses rdpmc in the kernel.
+
+Vince Weaver
+vweaver1@eecs.utk.edu
+13 March 2012
+
