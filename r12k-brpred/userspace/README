@@ -1,0 +1,2 @@
+This was an attempt to configure the branch predictor from userspace.
+This is not possible, it must be done from kernel space.

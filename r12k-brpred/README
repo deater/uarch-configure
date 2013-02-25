@@ -1,0 +1,15 @@
+This is a kernel module that will change the branch prediction
+method being used by an R12k MIPS processor.  This has been
+extensively tested on an Octane2 machine running Linux 2.6.22
+with the speedracer and perfmon patches applied.
+
+The proper way to do things would be to have a command-line parameter
+that sets the mode.  For now, you have to edit the source and recompile.
+
+This requires a functioning Linux kernel source tree, plus either
+a compiler or cross compiler.
+
+
+Vince Weaver
+vince _at_ csl.cornell.edu
+13 June 2008
