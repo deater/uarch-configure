@@ -1,0 +1,14 @@
+uarch-configure
+
+This package holds kernel modules that allow accessing low-level
+CPU features that might not have kernel support yet.
+
+Included:
+  core2-prefetch : disable prefetching on Core2 processors
+  r12k-brpred : set values for MIPS R12000 branch predictors
+  rasp-pi-pmu : tests performance counters on raspberry pi ARM 1176
+
+TODO:
+  rasp-pi-cache : set cache values on raspberry pi ARM 1176 processor
+  cortex-a9-config : read out TLB and Cache config from Cortex A9
+  RAPL
