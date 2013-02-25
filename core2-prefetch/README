@@ -1,0 +1,20 @@
+This is	a program I wrote to disable hardware prefetch using
+mtrrs on Core2 processors on Linux.
+
+It in theory only works	on Core2 machines (note: it will not work
+on Nehalem, it will not	work on	AMD machines).
+
+I wrote	this when trying to figure out the effect of the hardware
+prefetcher on L1 dcache	hit rates using	perf counters. 	Running
+this program sometimes (but not	always) changed	the results.  So
+use at your own	risk.
+
+This code is based on code from msr-tools-1.2
+   http://www.kernel.org/pub/linux/utils/cpu/msr-tools/
+by H. Peter Anvin.
+
+This code depends on /dev/msr support being enabled in your kernel.
+You might need to run the included 
+   MAKEDEV-cpuid-msr
+program first.
+
