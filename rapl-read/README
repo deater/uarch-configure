@@ -1,0 +1,6 @@
+Quick hack showing RAPL read functionality.
+
+This was developed into a more-complete PAPI component.
+
+There are better ways for getting this info than using this program.
+
