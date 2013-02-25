@@ -9,6 +9,7 @@ Included:
   r12k-brpred : set values for MIPS R12000 branch predictors
   rapl-read   : read x86 RAPL power/energy info
   rasp-pi-pmu : tests performance counters on raspberry pi ARM 1176
+  rdpmc-bench : code to text x86 rdpmc overhead
 
 TODO:
   rasp-pi-cache : set cache values on raspberry pi ARM 1176 processor
