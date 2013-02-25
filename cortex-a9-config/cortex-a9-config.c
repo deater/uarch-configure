@@ -23,11 +23,12 @@ static int tlb_size(int value) {
 
 static int __init cortex_a9_config_init(void)
 {
-        int tlb_info;
+        int tlb_info, actlr_info;
 
 	printk(KERN_INFO "VMW: Checking Cortex A9 stats\n");
 
 	/* TLB INFO */
+
         asm volatile("mrc p15, 0, %0, c0, c0, 3\n"
                      : "=r" (tlb_info));
 
@@ -36,6 +37,25 @@ static int __init cortex_a9_config_init(void)
                          (tlb_info>>8)&0xff,
 			 tlb_size((tlb_info>>1)&0x3),
                          !(tlb_info&1));
+
+
+	/* Cache info: ACTLR */
+
+        asm volatile("mrc p15, 0, %0, c1, c0, 1\n"
+                     : "=r" (actlr_info));
+
+	printk(KERN_INFO "ACTLR info: parity=%d alloc_in_one_way=%d "
+                         "exclusive_cache=%d SMP=%d "
+                         "line_of_zeros=%d l1_prefetch=%d l2_prefetch=%d "
+                         "TLB_maint_broadcast=%d\n",
+                         (actlr_info>>9)&1,
+                         (actlr_info>>8)&1,
+                         (actlr_info>>7)&1,
+                         (actlr_info>>6)&1,
+                         (actlr_info>>3)&1,
+                         (actlr_info>>2)&1,
+                         (actlr_info>>1)&1,
+                         (actlr_info>>0)&1);
 
 
 #if 0
