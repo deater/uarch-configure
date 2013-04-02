@@ -35,7 +35,8 @@ static int __init cortex_a9_prefetch_init(void)
                          (actlr_info>>1)&1,
                          (actlr_info>>0)&1);
 
-        printk(KERN_INFO "Enabling L1 and L2 prefetch\n");
+        printk(KERN_INFO "Enabling L1 and L2 prefetch (read %x)\n",
+               actlr_info);
 
         /* Enable L1 */
 	actlr_info |=0x4;
@@ -43,9 +44,11 @@ static int __init cortex_a9_prefetch_init(void)
         /* Enable L2 */
         actlr_info |=0x2;
 
+        printk(KERN_INFO "writing %x\n",actlr_info);
+
         asm volatile("mcr p15, 0, %0, c1, c0, 1\n"
-                     : "=r" (actlr_info));
-        
+                     : "+r" (actlr_info));
+
 
 	return 0;
 }
@@ -58,8 +61,8 @@ static void __exit cortex_a9_prefetch_exit(void)
         asm volatile("mrc p15, 0, %0, c1, c0, 1\n"
                      : "=r" (actlr_info));
 
-
-        printk(KERN_INFO "Disabling L1 and L2 prefetch\n");
+        printk(KERN_INFO "Disabling L1 and L2 prefetch (current %x)\n",
+               actlr_info);
 
         /* Enable L1 */
 	actlr_info &=~0x4;
@@ -67,8 +70,11 @@ static void __exit cortex_a9_prefetch_exit(void)
         /* Enable L2 */
         actlr_info &=~0x2;
 
+        printk(KERN_INFO "Writing %x\n",actlr_info);
+
         asm volatile("mcr p15, 0, %0, c1, c0, 1\n"
-                     : "=r" (actlr_info));
+                     : "+r" (actlr_info));
+
 }
 
 module_init(cortex_a9_prefetch_init);
