@@ -1,62 +1,37 @@
 /*
- *  cortex-a9-l1-prefetch.c - enable / disable cortex a9 hardware prefetch
+ *  cortex-a9-l2-prefetch.c - enable / disable cortex a9 L2 hardware prefetch
  */
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
 #include <linux/init.h>		/* Needed for the macros */
 
+#include <linux/io.h>
+
+#include <asm/hardware/cache-l2x0.h>
+
+/* from ./mach-omap2/omap44xx.h */
+#define OMAP44XX_L2CACHE_BASE           0x48242000
+
 #define DRIVER_AUTHOR "Vince Weaver <vincent.weaver@maine.edu>"
 #define DRIVER_DESC   "Enable/Disable cortex-a9 hardware prefetch"
 
-
-#include <asm/cacheflush.h>
+static void __iomem *l2cache_base;
 
 static int __init cortex_a9_prefetch_init(void)
 {
-        int actlr_info;
+        int aux;
 
-	printk(KERN_INFO "VMW: Checking Cortex A9 stats\n");
+	printk(KERN_INFO "VMW: Checking Cortex A9 PL310 L2 Cache Control\n");
 
-	/* Read Auxiliary Control Register: ACTLR */
-        /* Described in Cortex-A9 Technical Regerence Manual */
-        /* 7.6.2 and 4.3.10 */
+	/* Read PL310 Auxiliary Control Register: ACTLR */
+        /* Described in PL310 Cache Controller  Technical Regerence Manual */
+        /* 3.3.4 */
 
-        asm volatile("mrc p15, 0, %0, c1, c0, 1\n"
-                     : "=r" (actlr_info));
+        l2cache_base = ioremap(OMAP44XX_L2CACHE_BASE, SZ_4K);
 
-	printk(KERN_INFO "ACTLR info: parity=%d alloc_in_one_way=%d "
-                         "exclusive_cache=%d SMP=%d "
-                         "line_of_zeros=%d l1_prefetch=%d l2_prefetch=%d "
-                         "TLB_maint_broadcast=%d\n",
-                         (actlr_info>>9)&1,
-                         (actlr_info>>8)&1,
-                         (actlr_info>>7)&1,
-                         (actlr_info>>6)&1,
-                         (actlr_info>>3)&1,
-                         (actlr_info>>2)&1,
-                         (actlr_info>>1)&1,
-                         (actlr_info>>0)&1);
+        aux = readl_relaxed(l2cache_base + L2X0_AUX_CTRL);
 
-        printk(KERN_INFO "+ Enabling L1 and L2 prefetch (read %x)\n",
-               actlr_info);
-
-        /* Enable L1 */
-	actlr_info |=0x4;
-
-        /* Enable L2 */
-        actlr_info |=0x2;
-
-        printk(KERN_INFO "+ writing %x\n",actlr_info);
-
-        asm volatile("mcr p15, 0, %0, c1, c0, 1\n"
-                     : "+r" (actlr_info));
-
-
-        asm volatile("mrc p15, 0, %0, c1, c0, 1\n"
-                     : "=r" (actlr_info));
-
-
-        printk(KERN_INFO "+ re-reading to verify %x\n",actlr_info);
+	printk("+ PL310 aux = %x\n",aux);
 
 	return 0;
 }
@@ -64,24 +39,9 @@ static int __init cortex_a9_prefetch_init(void)
 static void __exit cortex_a9_prefetch_exit(void)
 {
 
-        int actlr_info;
+        int aux;
 
-        asm volatile("mrc p15, 0, %0, c1, c0, 1\n"
-                     : "=r" (actlr_info));
 
-        printk(KERN_INFO "Disabling L1 and L2 prefetch (current %x)\n",
-               actlr_info);
-
-        /* Enable L1 */
-	actlr_info &=~0x4;
-
-        /* Enable L2 */
-        actlr_info &=~0x2;
-
-        printk(KERN_INFO "Writing %x\n",actlr_info);
-
-        asm volatile("mcr p15, 0, %0, c1, c0, 1\n"
-                     : "+r" (actlr_info));
 
 }
 
