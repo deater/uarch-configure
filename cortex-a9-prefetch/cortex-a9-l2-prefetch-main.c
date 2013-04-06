@@ -63,10 +63,25 @@ static int __init cortex_a9_prefetch_init(void)
 	aux&=~(1<<29);
         aux&=~(1<<28);
 
+        /* To quote the manual:
+	   If you write to the Auxiliary Control Register with the L2 cache 
+           enabled, this results in a SLVERR. You must disable the L2 cache 
+           by writing to the Control Register 1 before writing to the 
+           Auxiliary Control Register.
+	*/
+
+        /* Disable PL310 L2 Cache controller */
+	omap_smc1(0x102, 0x0);
+
+
 	//        if (omap_rev() != OMAP4430_REV_ES1_0)
 	omap_smc1(0x109, aux);
 
 	//	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+
+        /* Enable PL310 L2 Cache controller */
+	omap_smc1(0x102, 0x1);
+
 
 	return 0;
 }
@@ -85,7 +100,7 @@ static void __exit cortex_a9_prefetch_exit(void)
         aux|=(1<<28);
 
 	//	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
-	omap_smc1(0x109, aux);
+	//	omap_smc1(0x109, aux);
 
 }
 
