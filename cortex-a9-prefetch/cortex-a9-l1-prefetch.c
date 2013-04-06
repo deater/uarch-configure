@@ -1,5 +1,18 @@
+/************************************************************************/
+/*                                                                      */
+/* Note!  This module does not work!                                    */
+/*   First, due to Linux being in non-secure mode it is not possible    */
+/*      to set the ACTLR or SCTLR registers directly.                   */
+/*   Second, I have been told that L1 prefetch is broken on Cortex A9   */
+/*      due to various Errata                                           */
+/*                                                                      */
+/* I'm leaving the code here though as an example.                      */
+/*                                                                      */
+/************************************************************************/
+
+
 /*
- *  cortex-a9-prefetch.c - enable / disable cortex a9 hardware prefetch
+ *  cortex-a9-l1-prefetch.c - enable / disable cortex a9 hardware prefetch
  */
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
@@ -8,6 +21,8 @@
 #define DRIVER_AUTHOR "Vince Weaver <vincent.weaver@maine.edu>"
 #define DRIVER_DESC   "Enable/Disable cortex-a9 hardware prefetch"
 
+
+#include <asm/cacheflush.h>
 
 static int __init cortex_a9_prefetch_init(void)
 {
@@ -35,7 +50,7 @@ static int __init cortex_a9_prefetch_init(void)
                          (actlr_info>>1)&1,
                          (actlr_info>>0)&1);
 
-        printk(KERN_INFO "Enabling L1 and L2 prefetch (read %x)\n",
+        printk(KERN_INFO "+ Enabling L1 and L2 prefetch (read %x)\n",
                actlr_info);
 
         /* Enable L1 */
@@ -44,11 +59,17 @@ static int __init cortex_a9_prefetch_init(void)
         /* Enable L2 */
         actlr_info |=0x2;
 
-        printk(KERN_INFO "writing %x\n",actlr_info);
+        printk(KERN_INFO "+ writing %x\n",actlr_info);
 
         asm volatile("mcr p15, 0, %0, c1, c0, 1\n"
                      : "+r" (actlr_info));
 
+
+        asm volatile("mrc p15, 0, %0, c1, c0, 1\n"
+                     : "=r" (actlr_info));
+
+
+        printk(KERN_INFO "+ re-reading to verify %x\n",actlr_info);
 
 	return 0;
 }
