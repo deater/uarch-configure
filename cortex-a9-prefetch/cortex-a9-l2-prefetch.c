@@ -9,6 +9,9 @@
 
 #include <asm/hardware/cache-l2x0.h>
 
+extern void omap_smc1(u32 fn, u32 arg);
+
+
 /* from ./mach-omap2/omap44xx.h */
 #define OMAP44XX_L2CACHE_BASE           0x48242000
 
@@ -60,7 +63,11 @@ static int __init cortex_a9_prefetch_init(void)
 	aux&=~(1<<29);
         aux&=~(1<<28);
 
-	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+	//        if (omap_rev() != OMAP4430_REV_ES1_0)
+	   omap_smc1(0x109, aux);
+
+
+	   //	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
 
 
 	return 0;
