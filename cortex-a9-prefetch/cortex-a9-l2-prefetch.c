@@ -31,7 +31,37 @@ static int __init cortex_a9_prefetch_init(void)
 
         aux = readl_relaxed(l2cache_base + L2X0_AUX_CTRL);
 
-	printk("+ PL310 aux = %x\n",aux);
+	printk(KERN_INFO "+ PL310 disable prefetch aux = %x\n",aux);
+
+        printk(KERN_INFO "+ InstructionPrefetch=%d DataPrefetch=%d "
+                         "NonSecInt=%d NonSecLock=%d "
+                         "ForceWrite=%d SharedApp=%d "
+                         "Parity=%d EventMon=%d "
+                         "WaySize=%d Assoc=%d "
+                         "Exclusive=%d LatTag=%d "
+	                 "LatWrite=%d LatRead=%d\n",
+	       (aux>>29)&1,
+               (aux>>28)&1,
+	       (aux>>27)&1,
+               (aux>>26)&1,
+	       (aux>>23)&3,
+               (aux>>22)&1,
+	       (aux>>21)&1,
+               (aux>>20)&1,
+	       (aux>>17)&7,
+               (aux>>16)&1,
+	       (aux>>12)&1,
+               (aux>>6)&7,
+	       (aux>>3)&7,
+               (aux>>0)&7);
+
+
+	/* disable prefetch */
+	aux&=~(1<<29);
+        aux&=~(1<<28);
+
+	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+
 
 	return 0;
 }
@@ -41,7 +71,15 @@ static void __exit cortex_a9_prefetch_exit(void)
 
         int aux;
 
+        aux = readl_relaxed(l2cache_base + L2X0_AUX_CTRL);
 
+	printk(KERN_INFO "+ PL310 re-enable prefetch aux = %x\n",aux);
+
+	/* enable prefetch */
+	aux|=(1<<29);
+        aux|=(1<<28);
+
+	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
 
 }
 
