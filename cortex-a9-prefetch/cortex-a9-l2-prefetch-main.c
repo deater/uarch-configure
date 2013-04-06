@@ -64,11 +64,9 @@ static int __init cortex_a9_prefetch_init(void)
         aux&=~(1<<28);
 
 	//        if (omap_rev() != OMAP4430_REV_ES1_0)
-	   omap_smc1(0x109, aux);
+	omap_smc1(0x109, aux);
 
-
-	   //	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
-
+	//	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
 
 	return 0;
 }
@@ -86,7 +84,8 @@ static void __exit cortex_a9_prefetch_exit(void)
 	aux|=(1<<29);
         aux|=(1<<28);
 
-	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+	//	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+	omap_smc1(0x109, aux);
 
 }
 
