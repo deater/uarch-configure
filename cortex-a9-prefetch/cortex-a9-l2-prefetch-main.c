@@ -1,6 +1,10 @@
 /*
  *  cortex-a9-l2-prefetch.c - enable / disable cortex a9 L2 hardware prefetch
  */
+
+/* Warning!  This does seem to work but occasionally will lock hard 
+   the system!  You have been warned!                                */
+
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
 #include <linux/init.h>		/* Needed for the macros */
@@ -32,9 +36,10 @@ static int __init cortex_a9_prefetch_init(void)
 
         l2cache_base = ioremap(OMAP44XX_L2CACHE_BASE, SZ_4K);
 
-        aux = readl_relaxed(l2cache_base + L2X0_AUX_CTRL);
+	//        aux = readl_relaxed(l2cache_base + L2X0_AUX_CTRL);
+        aux = readl(l2cache_base + L2X0_AUX_CTRL);
 
-	printk(KERN_INFO "+ PL310 disable prefetch aux = %x\n",aux);
+	printk(KERN_INFO "+ PL310 preparing to disable prefetch aux = %x\n",aux);
 
         printk(KERN_INFO "+ InstructionPrefetch=%d DataPrefetch=%d "
                          "NonSecInt=%d NonSecLock=%d "
@@ -70,18 +75,19 @@ static int __init cortex_a9_prefetch_init(void)
            Auxiliary Control Register.
 	*/
 
+	printk(KERN_INFO "+ PL310 writing new aux = %x\n",aux);
+
         /* Disable PL310 L2 Cache controller */
 	omap_smc1(0x102, 0x0);
 
-
-	//        if (omap_rev() != OMAP4430_REV_ES1_0)
 	omap_smc1(0x109, aux);
-
-	//	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+	writel(aux, l2cache_base + L2X0_AUX_CTRL);
 
         /* Enable PL310 L2 Cache controller */
 	omap_smc1(0x102, 0x1);
 
+        aux = readl(l2cache_base + L2X0_AUX_CTRL);
+	printk(KERN_INFO "+ PL310 reading new aux = %x\n",aux);
 
 	return 0;
 }
@@ -91,7 +97,7 @@ static void __exit cortex_a9_prefetch_exit(void)
 
         int aux;
 
-        aux = readl_relaxed(l2cache_base + L2X0_AUX_CTRL);
+        aux = readl(l2cache_base + L2X0_AUX_CTRL);
 
 	printk(KERN_INFO "+ PL310 re-enable prefetch aux = %x\n",aux);
 
@@ -99,8 +105,18 @@ static void __exit cortex_a9_prefetch_exit(void)
 	aux|=(1<<29);
         aux|=(1<<28);
 
-	//	writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
-	//	omap_smc1(0x109, aux);
+        /* Disable PL310 L2 Cache controller */
+	omap_smc1(0x102, 0x0);
+
+	omap_smc1(0x109, aux);
+	//writel_relaxed(aux, l2cache_base + L2X0_AUX_CTRL);
+
+        /* Enable PL310 L2 Cache controller */
+	omap_smc1(0x102, 0x1);
+
+
+
+
 
 }
 
