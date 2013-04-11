@@ -1,6 +1,5 @@
 /*
- *  hello-2.c - Demonstrating the module_init() and module_exit() macros.
- *  This is preferred over using init_module() and cleanup_module().
+ *  rasp-pi-pmu-test.c -- Verifies perf counters work on rasp-pi
  */
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
@@ -29,8 +28,9 @@ static int __init rasp_pi_pmu_init(void)
 
 	/* start counters */
 	control=0;
-	control|=(0x5<<20); /* evtcount0 = 0x5 = branches */
+	control|=(0x5<<20);  /* evtcount0 = 0x5 = branches */
         control|=(0x7<<12);  /* evtcount1 = 0x7  = instructions */
+
         /* x = 0 */
         /* CCR overflow interrupts = off = 0 */
         /* 0 */
@@ -71,7 +71,8 @@ static int __init rasp_pi_pmu_init(void)
                      : "=r" (count2));
 
 
-        printk(KERN_INFO "Stop: Control=%x Cycles=%d Count1=%d Count2=%d\n",
+        printk(KERN_INFO "Stop: Control=%x Cycles=%d Branches=%d "
+                          "Instructions=%d (should be ~1M)\n",
                           control,cycles,count1,count2);
 
 
