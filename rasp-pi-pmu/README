@@ -1,0 +1,35 @@
+This directory contains two modules for reading the performance
+counters on a Raspberry-pi.
+
+The perf_event interface does not support the Rasp-pi because the
+hardware is missing a PMU interrupt.  So while you can start,
+stop, and read the counters, there is no way to be informed
+of an overflow (and thus no way to do traditional sampling
+or emulated 64-bit counters).  In theory it is possible to modify
+the ARM perf_event driver to simulate things with a periodic timer,
+but no one has gotten around to it yet.
+
+In the meantime you can use these modules.
+
+The rasp-pi-pmu-test.ko module is a simple test that starts the 
+counters, runs a million instructions, and verifies that the results
+we get are sane.
+
+The rasp-pi-pmu.ko module can be used as a very crude performance monitor
+interface.  To use, 
+  insmod ./rasp-pi-pmu.ko
+  do your workload
+  rmmod rasp-pi-pmu
+and in the system log (visible to dmesg) you will see your event counts.
+By default it measures Instructions and Cycles.  To measure more you
+will need to edit the source and recompile.
+
+The values returned are system-wide values.  They will also include
+kernel+user values, but that's OK as the ARM PMU can't distinguish
+those anyways.
+
+To compile, just run "make".  This depends on the kernel headers for
+the kernel you are running being installed.
+
+
+
