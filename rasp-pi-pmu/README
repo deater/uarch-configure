@@ -21,7 +21,7 @@ interface.  To use,
   do your workload
   rmmod rasp-pi-pmu
 and in the system log (visible to dmesg) you will see your event counts.
-By default it measures Instructions and Cycles.  To measure more you
+By default it measures Cycles, Instructions, and Branches.  To measure more you
 will need to edit the source and recompile.
 
 The values returned are system-wide values.  They will also include
