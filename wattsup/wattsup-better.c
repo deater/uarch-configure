@@ -1,11 +1,8 @@
 /*
  *	wattsup - Program for controlling the Watts Up? Pro Device
  *
- *
  *	Copyright (c) 2005 Patrick Mochel
- *
  *	This program is released under the GPLv2
- *
  *
  *	Compiled with:
  *
