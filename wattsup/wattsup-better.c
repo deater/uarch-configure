@@ -28,14 +28,12 @@
 
 #include <sys/stat.h>
 
-static const char * wu_version = "0.02vmw";
+static const char * wu_version = "0.1-vmw";
 
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
 static const char * prog_name = "wattsup";
-
-static const char * sysfs_path_start = "/sys/class/tty";
 
 static char * wu_device = "ttyUSB0";
 static int wu_fd = 0;
@@ -376,116 +374,96 @@ static void print_packet_filter(struct wu_packet * p,
 	msg_end();
 }
 
+int debug=1;
+
 
 /*
- * Device should be something like "ttyS0"
+ * device_name is something like "ttyUSB0"
  */
 
-static int open_device(char * device_name, int * dev_fd)
-{
-	struct stat s;
-	int ret;
-	int cur_fd;
+static int open_device(char *device_name) {
 
-	cur_fd = open(".", O_RDONLY);
-	if (cur_fd < 0) {
-		perr("Could not open current directory.");
-		return cur_fd;
-	}
+   struct stat s;
+   int ret;
+   char full_device_name[BUFSIZ];
 
-	ret = chdir(sysfs_path_start);
-	if (ret) {
-		perr(sysfs_path_start);
-		return ret;
-	}
+   /*
+    * Check if device node exists and is writable
+    */
+   sprintf(full_device_name,"/dev/%s",device_name);
 
-	/*
-	 * First, check if /sys/class/tty/<name>/ exists.
-	 */
+   ret = stat(full_device_name, &s);
+   if (ret < 0) {
+      fprintf(stderr,"Problem statting %s\n",full_device_name);
+      return -1;
+   }
 
-	dbg("Checking sysfs path: %s/%s", sysfs_path_start, device_name);
+   if (!S_ISCHR(s.st_mode)) {
+      errno = -ENOTTY;
+      fprintf(stderr,"Error: %s is not a TTY character device.", 
+              full_device_name);
+      return -1;
+   }
 
-	ret = stat(device_name, &s);
-	if (ret < 0) {
-		perr(device_name);
-		goto Done;
-	}
+   if (debug) fprintf(stderr,"DEBUG: %s has a device node\n", 
+              full_device_name);
 
-	if (!S_ISDIR(s.st_mode)) {
-		errno = -ENOTDIR;
-		err("%s is not a TTY device.", device_name);
-		goto Done;
-	}
+   ret = access(full_device_name, R_OK | W_OK);
+   if (ret) {
+      fprintf(stderr,"Error: %s is not writable.", full_device_name);
+      return -1;
+   }
 
-	dbg("%s is a registered TTY device", device_name);
+   ret = open(full_device_name, O_RDWR | O_NONBLOCK);
+   if (ret < 0) {
+      fprintf(stderr,"Error! Could not open %s",full_device_name);
+      return -1;
+   }
 
-	fchdir(cur_fd);
-
-
-	/*
-	 * Check if device node exists and is writable
-	 */
-	chdir("/dev");
-
-	ret = stat(device_name, &s);
-	if (ret < 0) {
-		perr("/dev/%s (device node)", device_name);
-		goto Done;
-	}
-
-	if (!S_ISCHR(s.st_mode)) {
-		errno = -ENOTTY;
-		ret = -1;
-		err("%s is not a TTY character device.", device_name);
-		goto Done;
-	}
-
-	dbg("%s has a device node", device_name);
-
-	ret = access(device_name, R_OK | W_OK);
-	if (ret) {
-		perr("%s: Not writable?", device_name);
-		goto Done;
-	}
-
-	ret = open(device_name, O_RDWR | O_NONBLOCK);
-	if (ret < 0) {
-		perr("Could not open %s");
-		goto Done;
-	}
-	*dev_fd = ret;
-	ret = 0;
-Done:
-	fchdir(cur_fd);
-	close(cur_fd);
-	return ret;
+   return ret;
 }
 
 
-static int setup_serial_device(int dev_fd)
-{
-	struct termios t;
-	int ret;
+static int setup_serial_device(int fd) {
 
-	ret = tcgetattr(dev_fd, &t);
-	if (ret)
-		return ret;
+   struct termios t;
+   int ret;
 
-	cfmakeraw(&t);
-	cfsetispeed(&t, B9600);
-	cfsetospeed(&t, B115200);
-	tcflush(dev_fd, TCIFLUSH);
+   /* get the current attributes */
+   ret = tcgetattr(fd, &t);
+   if (ret) {
+      return ret;
+   }
+	
+   /* set terminal to "raw" mode */
+   cfmakeraw(&t);
+   
+   /* set input speed to 9600 */
+   //   cfsetispeed(&t, B9600);
+   cfsetispeed(&t, B115200);
 
-	t.c_iflag |= IGNPAR;
-	t.c_cflag &= ~CSTOPB;
-	ret = tcsetattr(dev_fd, TCSANOW, &t);
+   /* set output speed to 115200 */
+   cfsetospeed(&t, B115200);
+   //cfsetospeed(&t, B9600);
 
-	if (ret) {
-		perr("setting terminal attributes");
-		return ret;
-	}
+   /* discard any data received but not read */
+   tcflush(fd, TCIFLUSH);
 
-	return 0;
+   /* 8N1 */
+   t.c_cflag &= ~PARENB;
+   t.c_cflag &= ~CSTOPB;
+   t.c_cflag &= ~CSIZE;
+   t.c_cflag |= CS8;
+
+   /* set the attributes */
+   ret = tcsetattr(fd, TCSANOW, &t);
+
+   if (ret) {
+      fprintf(stderr,"ERROR: setting terminal attributes\n");
+      return ret;
+   }
+
+   return 0;
 }
 
 
@@ -828,29 +806,48 @@ static int filter_data(struct wu_packet * p, int i, char * buf)
 	return 0;
 }
 
-static int wu_clear(int fd)
-{
-	struct wu_packet p = {
-		.cmd		= 'R',
-		.sub_cmd	= 'W',
-		.count		= 0,
-	};
-	int ret;
+static int wu_clear(int fd) {
 
-	/*
-	 * Clear the memory
-	 */
-	ret = wu_write(fd, &p);
-	if (ret)
-		perr("Clearing memory");
-	else
-		sleep(2);
-	
-	/*
-	 * Dummy read
-	 */
-	wu_read(fd, &p);
-	return ret;
+   int ret;
+
+   char abort[]={0x18,0x0};
+   char hard_reset_packet[]="#V,W,0;";
+   char reset_packet[]="#R,W,0;";
+   char read_packet[BUFSIZ];
+
+   /* Clear the memory */
+   ret = write(fd, abort,strlen(abort));
+   if (ret!=strlen(abort)) {
+      fprintf(stderr,"Error Clearing memory!\n");
+   } else {
+     sleep(1);
+   }	
+
+   /* Clear the memory */
+   ret = write(fd, hard_reset_packet,strlen(hard_reset_packet));
+   if (ret!=strlen(hard_reset_packet)) {
+      fprintf(stderr,"Error Clearing memory!\n");
+   } else {
+     sleep(1);
+   }	
+
+   while(1) {
+
+
+   /* Clear the memory */
+   ret = write(fd, reset_packet,strlen(reset_packet));
+   if (ret!=strlen(reset_packet)) {
+      fprintf(stderr,"Error Clearing memory!\n");
+   } else {
+     sleep(1);
+   }	
+
+   /* Dummy read */
+
+   read(fd, read_packet,BUFSIZ);
+   sleep(1);
+   }
+   return ret;
 
 }
 
@@ -1760,32 +1757,36 @@ static int parse_args(int argc, char ** argv)
 }
 
 
-int main(int argc, char ** argv)
-{
-	int ret;
-	int fd = 0;
+int main(int argc, char ** argv) {
 
-	ret = parse_args(argc, argv);
-	if (ret)
-		return 0;
+   int ret;
+   int fd = 0;
 
-	/*
-	 * Try to enable debugging early
-	 */
-	if ((ret = wu_check_store(wu_option_debug, 0)))
-		goto Close;
+   ret = parse_args(argc, argv);
+   if (ret) {
+      return 0;
+   }
 
-	ret = open_device(wu_device, &fd);
-	if (ret)
-		return ret;
+   /*
+    * Try to enable debugging early
+    */
+   if ((ret = wu_check_store(wu_option_debug, 0))) {
+      return 0;
+   }
 
-	dbg("%s: Open for business", wu_device);
+   fd = open_device(wu_device);
+   if (fd<0) {
+      return fd;
+   }
 
-	ret = setup_serial_device(fd);
-	if (ret)
-		goto Close;
+   if (debug) fprintf(stderr,"DEBUG: %s is opened\n", wu_device);
 
-	wu_clear(fd);
+   ret = setup_serial_device(fd);
+   if (ret) {
+      goto Close;
+   }
+
+   wu_clear(fd);
 
 	wu_fd = fd;
 
