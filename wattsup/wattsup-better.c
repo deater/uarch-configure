@@ -1689,7 +1689,6 @@ static void enable_short_option(int c, char * arg)
 int main(int argc, char ** argv) {
 
    int ret;
-   int fd = 0;
 
    struct option longopts[wu_num_options + 1] = { };
    char shortopts[wu_num_options * 2] = "";
@@ -1764,105 +1763,101 @@ int main(int argc, char ** argv) {
       return 0;
    }
 
-   fd = open_device(wu_device);
-   if (fd<0) {
-      return fd;
+   wu_fd = open_device(wu_device);
+   if (wu_fd<0) {
+      return wu_fd;
    }
 
    if (debug) fprintf(stderr,"DEBUG: %s is opened\n", wu_device);
 
-   ret = setup_serial_device(fd);
+   ret = setup_serial_device(wu_fd);
    if (ret) {
       goto Close;
    }
 
-   wu_clear(fd);
-
-	wu_fd = fd;
-
 	/*
 	 * Set delimeter before we print out any fields.
 	 */
-	if ((ret = wu_check_store(wu_option_delim, fd)))
+	if ((ret = wu_check_store(wu_option_delim, wu_fd)))
 		goto Close;
 
 	/*
 	 * Ditto for 'label' and 'newline' flags.
 	 */
-	if ((ret = wu_check_store(wu_option_label, fd)))
+	if ((ret = wu_check_store(wu_option_label, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_newline, fd)))
+	if ((ret = wu_check_store(wu_option_newline, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_suppress, fd)))
+	if ((ret = wu_check_store(wu_option_suppress, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_localtime, fd)))
+	if ((ret = wu_check_store(wu_option_localtime, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_gmtime, fd)))
+	if ((ret = wu_check_store(wu_option_gmtime, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_set_only, fd)))
+	if ((ret = wu_check_store(wu_option_set_only, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_no_data, fd)))
+	if ((ret = wu_check_store(wu_option_no_data, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_info_all, fd)))
+	if ((ret = wu_check_store(wu_option_info_all, wu_fd)))
 		goto Close;
 
 
 	/*
 	 * Options to set device parameters.
 	 */
-	if ((ret = wu_check_store(wu_option_interval, fd)))
+	if ((ret = wu_check_store(wu_option_interval, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_mode, fd)))
+	if ((ret = wu_check_store(wu_option_mode, wu_fd)))
 		goto Close;
 
-	if ((ret = wu_check_store(wu_option_user, fd)))
+	if ((ret = wu_check_store(wu_option_user, wu_fd)))
 		goto Close;
 
 	/*
 	 * Check for options to print device info
 	 */
 	if (wu_info_all) {
-		wu_show(wu_option_cal, fd);
-		wu_show(wu_option_header, fd);
-		wu_show(wu_option_interval, fd);
-		wu_show(wu_option_mode, fd);
-		wu_show(wu_option_user, fd);
+		wu_show(wu_option_cal, wu_fd);
+		wu_show(wu_option_header, wu_fd);
+		wu_show(wu_option_interval, wu_fd);
+		wu_show(wu_option_mode, wu_fd);
+		wu_show(wu_option_user, wu_fd);
 	} else {
-		wu_check_show(wu_option_cal, fd);
-		wu_check_show(wu_option_header, fd);
+		wu_check_show(wu_option_cal, wu_fd);
+		wu_check_show(wu_option_header, wu_fd);
 
 		if (!wu_set_only) {
-			wu_check_show(wu_option_interval, fd);
-			wu_check_show(wu_option_mode, fd);
-			wu_check_show(wu_option_user, fd);
+			wu_check_show(wu_option_interval, wu_fd);
+			wu_check_show(wu_option_mode, wu_fd);
+			wu_check_show(wu_option_user, wu_fd);
 		}
 	}
 
 	if (!wu_no_data) {
 
-		if ((ret = wu_check_store(wu_option_count, fd)))
+		if ((ret = wu_check_store(wu_option_count, wu_fd)))
 			goto Close;
 
-		if ((ret = wu_check_store(wu_option_final, fd)))
+		if ((ret = wu_check_store(wu_option_final, wu_fd)))
 			goto Close;
 
 		if ((ret = wu_start_log()))
 			goto Close;
 	    
-		wu_read_data(fd);
+		wu_read_data(wu_fd);
 		
 		wu_stop_log();
 	}
 Close:
-	close(fd);
+	close(wu_fd);
 	return ret;
 }
 
