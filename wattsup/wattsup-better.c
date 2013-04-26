@@ -28,14 +28,12 @@
 
 #include <sys/stat.h>
 
-static const char * wu_version = "0.1-vmw";
+static const char *wu_version = "0.2-vmw";
 
 
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof(array[0]))
 
-static const char * prog_name = "wattsup";
-
-static char * wu_device = "ttyUSB0";
+static char *wu_device = "ttyUSB0";
 static int wu_fd = 0;
 static int wu_count = 0;
 static int wu_debug = 0;
@@ -280,7 +278,7 @@ static void dbg(const char * fmt, ...)
 
 	if (wu_debug) {
 		va_start(ap, fmt);
-		msg_start("%s: [debug] ", prog_name);
+		msg_start("wattsup: [debug] ");
 		vprintf(fmt, ap);
 		msg_end();
 		va_end(ap);
@@ -292,7 +290,7 @@ static void err(const char * fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	fprintf(stderr, "%s: [error] ", prog_name);
+	fprintf(stderr, "wattsup: [error] ");
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 	va_end(ap);
@@ -305,7 +303,7 @@ static void perr(const char * fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	n = sprintf(buf, "%s: [error] ", prog_name);
+	n = sprintf(buf, "wattsup: [error] ");
 	vsnprintf(buf + n, sizeof(buf) - n, fmt, ap);
 	perror(buf);
 	va_end(ap);
@@ -1517,7 +1515,7 @@ static struct wu_options wu_options[] = {
 
 static int wu_show_version(int unused)
 {
-	printf("%s Version %s\n", prog_name, wu_version);
+	printf("Wattsup Version %s\n", wu_version);
 	return 0;
 }
 
@@ -1531,7 +1529,7 @@ static int wu_show_help(int unused)
 	printf("\n");
 
 	printf("Usage: %s [<options> ... ] <device> [ <values> ... ]\n",
-	       prog_name);
+	       "wattsup");
 	printf("\n");
 	
 	printf("<device> is the serial port the device is connected at.\n");
@@ -1688,84 +1686,76 @@ static void enable_short_option(int c, char * arg)
 	}
 }
 
-static int parse_args(int argc, char ** argv)
-{
-	struct option longopts[wu_num_options + 1] = { };
-	char shortopts[wu_num_options * 2] = "";
-
-	make_longopt(longopts);
-	make_shortopt(shortopts);
-
-
-	while (1) {
-		int c;
-		int index;
-
-		c = getopt_long(argc, argv, shortopts, 
-				longopts, &index);
-		if (c == -1)
-			break;
-		
-		switch (c) {
-		case 0:
-			wu_options[index].flag = 1;
-			if (optarg)
-				wu_options[index].value = strdup(optarg);
-			
-			printf("long option: val = %c, optarg = %s\n",
-			       wu_options[index].shortopt, optarg);
-			break;
-		case '?':
-			err("Bad parameter");
-			return ret_err(EINVAL);
-			break;
-		default:
-			enable_short_option(c, optarg);
-			break;
-		}
-	}
-
-	/*
-	 * Check for help request now and bail after 
-	 * printing it, if it's set.
-	 */
-	if (wu_check_show(wu_option_help, 0))
-		exit(0);
-
-	if (wu_check_show(wu_option_version, 0))
-		exit(0);
-
-	/*
-	 * Fields to print out
-	 */
-	if (optind < argc) {
-		int i;
-
-		wu_device = argv[optind++];
-
-		if (optind < argc) {
-			for (i = optind; i < argc; i++)
-				enable_field(argv[i]);
-		} else
-			enable_all_fields();
-
-	} else {
-		wu_show(wu_option_help, 0);
-		return ret_err(EINVAL);
-	}
-	return 0;
-}
-
-
 int main(int argc, char ** argv) {
 
    int ret;
    int fd = 0;
 
-   ret = parse_args(argc, argv);
-   if (ret) {
-      return 0;
+   struct option longopts[wu_num_options + 1] = { };
+   char shortopts[wu_num_options * 2] = "";
+
+   /********************************/
+   /* Parse command line arguments */
+   /********************************/
+
+   make_longopt(longopts);
+   make_shortopt(shortopts);
+
+   while (1) {
+      int c;
+      int index;
+
+      c = getopt_long(argc, argv, shortopts, longopts, &index);
+      if (c == -1) {
+	 break;
+      }	
+      switch (c) {
+         case 0: wu_options[index].flag = 1;
+	         if (optarg) {
+		    wu_options[index].value = strdup(optarg);
+			
+		    printf("long option: val = %c, optarg = %s\n",
+			   wu_options[index].shortopt, optarg);
+		 }
+		 break;
+	 case '?':
+		 err("Bad parameter");
+		 return ret_err(EINVAL);
+		 break;
+	 default:
+		 enable_short_option(c, optarg);
+		 break;
+      }
    }
+
+   /* Print help if requested */
+   if (wu_check_show(wu_option_help, 0))
+      exit(0);
+
+   /* Print version if requested */
+   if (wu_check_show(wu_option_version, 0))
+      exit(0);
+
+	/*
+	 * Fields to print out
+	 */
+   if (optind < argc) {
+      int i;
+
+      wu_device = argv[optind++];
+
+      if (optind < argc) {
+	 for(i = optind; i < argc; i++) {
+	    enable_field(argv[i]);
+	 }
+      } else {
+	 enable_all_fields();
+      }
+   } else {
+      wu_show(wu_option_help, 0);
+      return ret_err(EINVAL);
+   }
+
 
    /*
     * Try to enable debugging early
