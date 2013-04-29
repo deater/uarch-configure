@@ -1,0 +1,15 @@
+This is a slightly modified version of the watts up tool that
+they offer on their website. (https://www.wattsupmeters.com/secure/index.php)
+And (https://www.wattsupmeters.com/forum/index.php?action=profile;u=1;sa=showPosts)
+
+This software works with the particular model of the Watts up Pro we have,
+there's no guarantee it will work with yours.
+
+To run the code, use something like this:
+   wattsup ttyUSB0
+
+Use "dmesg" after plugging in the device to see what the USB serial
+port is detected at.
+
+If running Ubuntu, the brltty Braile reading device might be interfering.
+Try removing it if the log indicates that is what is happening.

@@ -1,7 +1,40 @@
 /*
- *  hello-2.c - Demonstrating the module_init() and module_exit() macros.
- *  This is preferred over using init_module() and cleanup_module().
+ * rasp-pi-pmu.c -- lets you use the Rasp-Pi Performance Counters
+ *                  even though the kernel doesn't due to lack of PMU
+ *                  interrupt
  */
+
+#define ICACHE_MISS	0x0
+#define IBUF_STALL	0x1
+#define DDEP_STALL	0x2	/* Stall because of data dependency */
+#define ITLB_MISS	0x3	/* Instruction MicroTLB miss */
+#define DTLB_MISS	0x4	/* Data MicroTLB miss */
+#define BR_EXEC		0x5	/* Branch instruction executed */
+#define BR_MISPREDICT	0x6	/* Branch mispredicted */
+#define INSTR_EXEC	0x7	/* Instruction executed */
+#define DCACHE_HIT	0x9	/* Data cache hit */
+#define DCACHE_ACCESS	0xa	/* Data cache access */
+#define DCACHE_MISS	0xb	/* Data cache miss */
+#define DCACHE_WBACK	0xc	/* Data cache writeback */
+#define SW_PC_CHANGE	0xd	/* Software changed the PC */
+#define	MAIN_TLB_MISS	0xf	/* Main TLB miss */
+#define	EXPL_D_ACCESS	0x10	/* Explicit external data cache access */
+#define LSU_FULL_STALL	0x11	/* Stall because of full Load Store Unit request queue */
+#define WBUF_DRAINED	0x12    /* Write buffer drained due to data synchronization barrier or strongly ordered operation */
+#define ETMEXTOUT_0	0x20	/* ETMEXTOUT[0] was asserted */
+#define ETMEXTOUT_1	0x21	/* ETMEXTOUT[1] was asserted */
+#define ETMEXTOUT	0x22	/* Increment once for each of ETMEXTOUT[0] or ETMEXTOUT[1] */
+#define PROC_CALL_EXEC	0x23	/* Procedure call instruction executed */
+#define	PROC_RET_EXEC	0x24	/* Procedure return instruction executed */
+#define PROC_RET_EXEC_PRED 0x25	/* Proceudre return instruction executed and address predicted */
+#define PROC_RET_EXEC_PRED_INCORRECT	0x26	/* Procedure return instruction executed and address predicted incorrectly */
+#define CPU_CYCLES	0xff
+
+/* Change these to select event that is measured */
+static int event1 = BR_EXEC;
+static int event2 = INSTR_EXEC;
+
+
 #include <linux/module.h>	/* Needed by all modules */
 #include <linux/kernel.h>	/* Needed for KERN_INFO */
 #include <linux/init.h>		/* Needed for the macros */
@@ -9,12 +42,16 @@
 #define DRIVER_AUTHOR "Vince Weaver <vincent.weaver@maine.edu>"
 #define DRIVER_DESC   "Some tests for rasp-pi counter support"
 
+static int control,cycles,count1,count2;
+
+
 static int __init rasp_pi_pmu_init(void)
 {
-        int control,cycles,count1,count2;
 
-	printk(KERN_INFO "VMW: Checking Rasp-pi 1176 counter support\n");
+	printk(KERN_INFO "VMW: Starting Rasp-pi 1176 counters, events %x and %x\n",
+               event1,event2);
 
+	/* read current values */
         asm volatile("mrc p15, 0, %0, c15, c12, 0\n"
                      : "=r" (control));
         asm volatile("mrc p15, 0, %0, c15, c12, 1\n"
@@ -24,13 +61,13 @@ static int __init rasp_pi_pmu_init(void)
         asm volatile("mrc p15, 0, %0, c15, c12, 3\n"
                      : "=r" (count2));
 
-        printk(KERN_INFO "Start: Control=%x Cycles=%x Count1=%x Count2=%x\n",
-                          control,cycles,count1,count2);
+//        printk(KERN_INFO "Start: Control=%x Cycles=%x Count1=%x Count2=%x\n",
+//                          control,cycles,count1,count2);
 
 	/* start counters */
 	control=0;
-	control|=(0x5<<20); /* evtcount0 = 0x5 = branches */
-        control|=(0x7<<12);  /* evtcount1 = 0x7  = instructions */
+	control|=((event1&0xff)<<20);  /* evtcount0 */
+        control|=((event2&0xff)<<12);  /* evtcount1 */
         /* x = 0 */
         /* CCR overflow interrupts = off = 0 */
         /* 0 */
@@ -40,25 +77,16 @@ static int __init rasp_pi_pmu_init(void)
         control|=(1<<1); /* reset count registers */
         control|=(1<<0); /* start counters */
 
+        /* start the counters */
+
         asm volatile("mcr p15, 0, %0, c15, c12, 0\n"
                      : "+r" (control));
 
+	return 0;
+}
 
-	/* do something */
-        /* 1 million instructions */
-
-    asm("\tldr     r2,count                    @ set count\n"
-        "\tb       test_loop\n"
-        "count:       .word 333332\n"
-        "test_loop:\n"
-        "\tadd     r2,r2,#-1\n"
-        "\tcmp     r2,#0\n"
-        "\tbne     test_loop                    @ repeat till zero\n"
-       : /* no output registers */
-       : /* no inputs */
-       : "cc", "r2" /* clobbered */
-        );
-
+static void __exit rasp_pi_pmu_exit(void)
+{
 
 	/* read results */
         asm volatile("mrc p15, 0, %0, c15, c12, 0\n"
@@ -70,8 +98,7 @@ static int __init rasp_pi_pmu_init(void)
         asm volatile("mrc p15, 0, %0, c15, c12, 3\n"
                      : "=r" (count2));
 
-
-        printk(KERN_INFO "Stop: Control=%x Cycles=%d Count1=%d Count2=%d\n",
+        printk(KERN_INFO "VMW Stop: Control=%x Cycles=%d Count1=%d Count2=%d\n",
                           control,cycles,count1,count2);
 
 
@@ -80,13 +107,6 @@ static int __init rasp_pi_pmu_init(void)
         asm volatile("mcr p15, 0, %0, c15, c12, 0\n"
                      : "+r" (control));
 
-
-	return 0;
-}
-
-static void __exit rasp_pi_pmu_exit(void)
-{
-	printk(KERN_INFO "VMW: Unloading\n");
 }
 
 module_init(rasp_pi_pmu_init);
