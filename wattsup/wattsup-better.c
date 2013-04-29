@@ -1763,6 +1763,9 @@ int main(int argc, char ** argv) {
       return 0;
    }
 
+   /*************************/
+   /* Open device           */
+   /*************************/
    wu_fd = open_device(wu_device);
    if (wu_fd<0) {
       return wu_fd;
