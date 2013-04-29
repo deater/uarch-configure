@@ -1,0 +1,13 @@
+--- arch/arm/mach-omap2/omap4-common.c~	2013-02-18 18:58:34.000000000 -0500
++++ arch/arm/mach-omap2/omap4-common.c	2013-04-29 10:27:44.469806499 -0400
+@@ -201,8 +201,8 @@
+ 	} else {
+ 		aux_ctrl |= ((0x3 << L2X0_AUX_CTRL_WAY_SIZE_SHIFT) |
+ 			(1 << L2X0_AUX_CTRL_SHARE_OVERRIDE_SHIFT) |
+-			(1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) |
+-			(1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) |
++			     //			(1 << L2X0_AUX_CTRL_DATA_PREFETCH_SHIFT) |
++			     //(1 << L2X0_AUX_CTRL_INSTR_PREFETCH_SHIFT) |
+ 			(1 << L2X0_AUX_CTRL_EARLY_BRESP_SHIFT));
+ 	}
+ 	if (omap_rev() != OMAP4430_REV_ES1_0)

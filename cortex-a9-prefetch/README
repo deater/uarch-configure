@@ -1,0 +1,9 @@
+This code tries to disable the L2 HW prefetching on ARM Cortex A9
+machines on the fly with a module.
+
+It locks/panics the machine a lot of the time.  And when it doesn't,
+something in the kernel gets stuck and eats 40% of the CPU and sucks
+down a watt of power.
+
+In the end for the experiments it was easier to just disable the
+prefetch at boot-time. See the included patch against 3.8.0.
