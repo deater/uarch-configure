@@ -12,6 +12,7 @@
 #include <linux/io.h>
 
 #include <asm/hardware/cache-l2x0.h>
+#include <asm/cacheflush.h>
 
 extern void omap_smc1(u32 fn, u32 arg);
 
@@ -75,7 +76,12 @@ static int __init cortex_a9_prefetch_init(void)
            Auxiliary Control Register.
 	*/
 
+
 	printk(KERN_INFO "+ PL310 writing new aux = %x\n",aux);
+
+        /* Do we need to turn off interrupts or stop CPUs here? */
+       	flush_cache_all();
+	outer_flush_all();
 
         /* Disable PL310 L2 Cache controller */
 	omap_smc1(0x102, 0x0);
@@ -104,6 +110,9 @@ static void __exit cortex_a9_prefetch_exit(void)
 	/* enable prefetch */
 	aux|=(1<<29);
         aux|=(1<<28);
+
+       	flush_cache_all();
+	outer_flush_all();
 
         /* Disable PL310 L2 Cache controller */
 	omap_smc1(0x102, 0x0);
