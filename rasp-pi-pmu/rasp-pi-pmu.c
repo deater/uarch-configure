@@ -44,6 +44,16 @@ static int event2 = INSTR_EXEC;
 
 static int control,cycles,count1,count2;
 
+static struct timer_list overflow_timer;
+
+static int overflows=0;
+
+static void avoid_overflow(unsigned long data) {
+	mod_timer(&overflow_timer, jiffies + msecs_to_jiffies(250));
+	overflows++;
+}
+
+
 
 static int __init rasp_pi_pmu_init(void)
 {
@@ -82,6 +92,10 @@ static int __init rasp_pi_pmu_init(void)
         asm volatile("mcr p15, 0, %0, c15, c12, 0\n"
                      : "+r" (control));
 
+	/* start the timer, 250 ms */
+	setup_timer(&overflow_timer, avoid_overflow, 0);
+	mod_timer(&overflow_timer, jiffies + msecs_to_jiffies(250));
+
 	return 0;
 }
 
@@ -98,14 +112,16 @@ static void __exit rasp_pi_pmu_exit(void)
         asm volatile("mrc p15, 0, %0, c15, c12, 3\n"
                      : "=r" (count2));
 
-        printk(KERN_INFO "VMW Stop: Control=%x Cycles=%d Count1=%d Count2=%d\n",
-                          control,cycles,count1,count2);
+        printk(KERN_INFO "VMW Stop: Control=%x Cycles=%d Count1=%d Count2=%d Overflows=%d\n",
+                          control,cycles,count1,count2,overflows);
 
 
 	/* disable */
 	control=0;
         asm volatile("mcr p15, 0, %0, c15, c12, 0\n"
                      : "+r" (control));
+
+	del_timer(&overflow_timer);
 
 }
 
