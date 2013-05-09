@@ -42,17 +42,70 @@ static int event2 = INSTR_EXEC;
 #define DRIVER_AUTHOR "Vince Weaver <vincent.weaver@maine.edu>"
 #define DRIVER_DESC   "Some tests for rasp-pi counter support"
 
-static int control,cycles,count1,count2;
+static int control;
+
+static unsigned int cycles,count1,count2;
+static unsigned int old_cycles=0,old_count1=0,old_count2=0;
+
+static long long total_cycles,total_count1,total_count2;
 
 static struct timer_list overflow_timer;
 
 static int overflows=0;
 
-static void avoid_overflow(unsigned long data) {
-	mod_timer(&overflow_timer, jiffies + msecs_to_jiffies(250));
-	overflows++;
+static void read_counters(void) {
+
+	/* read results */
+        asm volatile("mrc p15, 0, %0, c15, c12, 0\n"
+                     : "=r" (control));
+        asm volatile("mrc p15, 0, %0, c15, c12, 1\n"
+                     : "=r" (cycles));
+        asm volatile("mrc p15, 0, %0, c15, c12, 2\n"
+                     : "=r" (count1));
+        asm volatile("mrc p15, 0, %0, c15, c12, 3\n"
+                     : "=r" (count2));
+
 }
 
+static void update_counters(void) {
+
+	read_counters();
+
+	if (cycles<old_cycles) {
+		overflows++;
+		total_cycles+=(0xffffffff-old_cycles)+cycles+1;
+	} else {
+		total_cycles+=(cycles-old_cycles);
+	}
+
+
+	if (count1<old_count1) {
+		overflows++;
+		total_count1+=(0xffffffff-old_count1)+count1+1;
+	} else {
+		total_count1+=(count1-old_count1);
+	}
+
+
+	if (count2<old_count2) {
+		overflows++;
+		total_count2+=(0xffffffff-old_count2)+count2+1;
+	} else {
+		total_count2+=(count2-old_count2);
+	}
+
+
+
+	old_cycles=cycles;
+	old_count1=count1;
+	old_count2=count2;
+
+}
+
+static void avoid_overflow(unsigned long data) {
+	mod_timer(&overflow_timer, jiffies + msecs_to_jiffies(250));
+	update_counters();
+}
 
 
 static int __init rasp_pi_pmu_init(void)
@@ -62,14 +115,7 @@ static int __init rasp_pi_pmu_init(void)
                event1,event2);
 
 	/* read current values */
-        asm volatile("mrc p15, 0, %0, c15, c12, 0\n"
-                     : "=r" (control));
-        asm volatile("mrc p15, 0, %0, c15, c12, 1\n"
-                     : "=r" (cycles));
-        asm volatile("mrc p15, 0, %0, c15, c12, 2\n"
-                     : "=r" (count1));
-        asm volatile("mrc p15, 0, %0, c15, c12, 3\n"
-                     : "=r" (count2));
+	read_counters();
 
 //        printk(KERN_INFO "Start: Control=%x Cycles=%x Count1=%x Count2=%x\n",
 //                          control,cycles,count1,count2);
@@ -87,14 +133,18 @@ static int __init rasp_pi_pmu_init(void)
         control|=(1<<1); /* reset count registers */
         control|=(1<<0); /* start counters */
 
-        /* start the counters */
-
-        asm volatile("mcr p15, 0, %0, c15, c12, 0\n"
-                     : "+r" (control));
+	total_cycles=0;
+	total_count1=0;
+	total_count2=0;
 
 	/* start the timer, 250 ms */
 	setup_timer(&overflow_timer, avoid_overflow, 0);
 	mod_timer(&overflow_timer, jiffies + msecs_to_jiffies(250));
+
+        /* start the counters */
+
+        asm volatile("mcr p15, 0, %0, c15, c12, 0\n"
+                     : "+r" (control));
 
 	return 0;
 }
@@ -102,18 +152,14 @@ static int __init rasp_pi_pmu_init(void)
 static void __exit rasp_pi_pmu_exit(void)
 {
 
-	/* read results */
-        asm volatile("mrc p15, 0, %0, c15, c12, 0\n"
-                     : "=r" (control));
-        asm volatile("mrc p15, 0, %0, c15, c12, 1\n"
-                     : "=r" (cycles));
-        asm volatile("mrc p15, 0, %0, c15, c12, 2\n"
-                     : "=r" (count1));
-        asm volatile("mrc p15, 0, %0, c15, c12, 3\n"
-                     : "=r" (count2));
 
-        printk(KERN_INFO "VMW Stop: Control=%x Cycles=%d Count1=%d Count2=%d Overflows=%d\n",
-                          control,cycles,count1,count2,overflows);
+
+
+	/* update counters */
+	update_counters();
+
+        printk(KERN_INFO "VMW Stop: Control=%x Cycles=%lld Count1=%lld Count2=%lld Overflows=%d\n",
+                          control,total_cycles,total_count1,total_count2,overflows);
 
 
 	/* disable */
