@@ -94,6 +94,12 @@ long long read_msr(int fd, int which) {
   return (long long)data;
 }
 
+#define CPU_SANDYBRIDGE     42
+#define CPU_SANDYBRIDGE_EP  45
+#define CPU_IVYBRIDGE       58
+#define CPU_IVYBRUDGE_EP    62
+
+int cpu_model=CPU_IVYBRIDGE;
 
 int main(int argc, char **argv) {
 
@@ -103,8 +109,8 @@ int main(int argc, char **argv) {
   double power_units,energy_units,time_units;
   double package_before,package_after;
   double pp0_before,pp0_after;
-  //  double pp1_before,pp1_after;
-  double dram_before,dram_after;
+  double pp1_before=0.0,pp1_after;
+  double dram_before=0.0,dram_after;
   double thermal_spec_power,minimum_power,maximum_power,time_window;
 
   printf("\n");
@@ -149,15 +155,16 @@ int main(int argc, char **argv) {
   printf("PowerPlane0 (core) for core %d energy before: %.6fJ\n",core,pp0_before);
 
   /* not available on SandyBridge-EP */
-#if 0
-  result=read_msr(fd,MSR_PP1_ENERGY_STATUS);  
-  pp1_before=(double)result*energy_units;
-  printf("PP1 (on-core GPU if avail) before: %.6fJ\n",pp1_before);
-#endif
-
-  result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
-  dram_before=(double)result*energy_units;
-  printf("DRAM energy before: %.6fJ\n",dram_before);
+  if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE)) {
+     result=read_msr(fd,MSR_PP1_ENERGY_STATUS);  
+     pp1_before=(double)result*energy_units;
+     printf("PowerPlane1 (on-core GPU if avail) before: %.6fJ\n",pp1_before);
+  }
+  else {
+     result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
+     dram_before=(double)result*energy_units;
+     printf("DRAM energy before: %.6fJ\n",dram_before);
+  }
 
   printf("\nSleeping 1 second\n\n");
   sleep(1);
@@ -173,17 +180,18 @@ int main(int argc, char **argv) {
 	 core,pp0_after,pp0_after-pp0_before);
 
   /* not available on SandyBridge-EP */
-#if 0
-  result=read_msr(fd,MSR_PP1_ENERGY_STATUS);  
-  pp1_after=(double)result*energy_units;
-  printf("PP1 (on-core GPU if avail): %.6f  (%.6fJ consumed)\n",
+  if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE)) {
+     result=read_msr(fd,MSR_PP1_ENERGY_STATUS);  
+     pp1_after=(double)result*energy_units;
+     printf("PowerPlane1 (on-core GPU if avail) after: %.6f  (%.6fJ consumed)\n",
 	 pp1_after,pp1_after-pp1_before);
-#endif
-
-  result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);  
-  dram_after=(double)result*energy_units;
-  printf("DRAM energy after: %.6f  (%.6fJ consumed)\n",
+  }
+  else {
+     result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);  
+     dram_after=(double)result*energy_units;
+     printf("DRAM energy after: %.6f  (%.6fJ consumed)\n",
 	 dram_after,dram_after-dram_before);
+  }
 
   printf("\n");
   printf("Note: the energy measurements can overflow in 60s or so\n");
