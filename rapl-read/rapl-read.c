@@ -4,9 +4,9 @@
 /* The /dev/cpu/??/msr driver must be enabled and permissions set     */
 /* to allow read access for this to work.                             */
 /*                                                                    */
-/* Compile with:   gcc -O2 -Wall -o rapl_msr rapl_msr.c -lm           */
+/* Compile with:   gcc -O2 -Wall -o rapl-read rapl-read.c -lm         */
 /*                                                                    */
-/* Vince Weaver -- vweaver1@eecs.utk.edu -- 16 March 2012             */
+/* Vince Weaver -- vincent.weaver @ maine.edu -- 20 June 2013         */
 
 #include <stdio.h>
 #include <stdlib.h>
