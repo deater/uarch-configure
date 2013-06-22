@@ -13,3 +13,5 @@ rapl-read.o:	rapl-read.c
 clean:	
 	rm -f *.o *~ rapl-read
 
+install:
+	scp rapl-read.c vweaver@sasquatch.eece.maine.edu:public_html/projects/rapl

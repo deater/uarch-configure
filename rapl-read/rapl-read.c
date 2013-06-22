@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <math.h>
+#include <string.h>
 
 #define MSR_RAPL_POWER_UNIT		0x606
 
@@ -97,9 +98,69 @@ long long read_msr(int fd, int which) {
 #define CPU_SANDYBRIDGE     42
 #define CPU_SANDYBRIDGE_EP  45
 #define CPU_IVYBRIDGE       58
-#define CPU_IVYBRUDGE_EP    62
+#define CPU_IVYBRIDGE_EP    62
 
-int cpu_model=CPU_IVYBRIDGE;
+
+int detect_cpu(void) {
+
+	FILE *fff;
+
+	int family,model=-1;
+	char buffer[BUFSIZ],*result;
+	char vendor[BUFSIZ];
+
+	fff=fopen("/proc/cpuinfo","r");
+	if (fff==NULL) return -1;
+
+	while(1) {
+		result=fgets(buffer,BUFSIZ,fff);
+		if (result==NULL) break;
+
+		if (!strncmp(result,"vendor_id",8)) {
+			sscanf(result,"%*s%*s%s",vendor);
+
+			if (strncmp(vendor,"GenuineIntel",12)) {
+				printf("%s not an Intel chip\n",vendor);
+				return -1;
+			}
+		}
+
+		if (!strncmp(result,"cpu family",10)) {
+			sscanf(result,"%*s%*s%*s%d",&family);
+			if (family!=6) {
+				printf("Wrong CPU family %d\n",family);
+				return -1;
+			}
+		}
+
+		if (!strncmp(result,"model",5)) {
+			sscanf(result,"%*s%*s%d",&model);
+		}
+
+	}
+
+	fclose(fff);
+
+	switch(model) {
+		case CPU_SANDYBRIDGE:
+			printf("Found Sandybridge CPU\n");
+			break;
+		case CPU_SANDYBRIDGE_EP:
+			printf("Found Sandybridge-EP CPU\n");
+			break;
+		case CPU_IVYBRIDGE:
+			printf("Found Ivybridge CPU\n");
+			break;
+		case CPU_IVYBRIDGE_EP:
+			printf("Found Ivybridge-EP CPU\n");
+			break;
+		default:	printf("Unsupported model %d\n",model);
+				model=-1;
+				break;
+	}
+
+	return model;
+}
 
 int main(int argc, char **argv) {
 
@@ -112,8 +173,15 @@ int main(int argc, char **argv) {
   double pp1_before=0.0,pp1_after;
   double dram_before=0.0,dram_after;
   double thermal_spec_power,minimum_power,maximum_power,time_window;
+  int cpu_model;
 
   printf("\n");
+
+  cpu_model=detect_cpu();
+  if (cpu_model<0) {
+	printf("Unsupported CPU type\n");
+	return -1;
+  }
 
   fd=open_msr(core);
 
