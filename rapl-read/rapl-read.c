@@ -100,11 +100,11 @@ long long read_msr(int fd, int which) {
   return (long long)data;
 }
 
-#define CPU_SANDYBRIDGE     42
-#define CPU_SANDYBRIDGE_EP  45
-#define CPU_IVYBRIDGE       58
-#define CPU_IVYBRIDGE_EP    62
-
+#define CPU_SANDYBRIDGE		42
+#define CPU_SANDYBRIDGE_EP	45
+#define CPU_IVYBRIDGE		58
+#define CPU_IVYBRIDGE_EP	62
+#define CPU_HASWELL		60
 
 int detect_cpu(void) {
 
@@ -158,6 +158,9 @@ int detect_cpu(void) {
 			break;
 		case CPU_IVYBRIDGE_EP:
 			printf("Found Ivybridge-EP CPU\n");
+			break;
+		case CPU_HASWELL:
+			printf("Found Haswell CPU\n");
 			break;
 		default:	printf("Unsupported model %d\n",model);
 				model=-1;
@@ -219,17 +222,18 @@ int main(int argc, char **argv) {
   result=read_msr(fd,MSR_RAPL_POWER_UNIT);
 
 
-  result=read_msr(fd,MSR_PKG_ENERGY_STATUS);  
+  result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
   package_before=(double)result*energy_units;
   printf("Package energy before: %.6fJ\n",package_before);
 
-  result=read_msr(fd,MSR_PP0_ENERGY_STATUS);  
+  result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
   pp0_before=(double)result*energy_units;
   printf("PowerPlane0 (core) for core %d energy before: %.6fJ\n",core,pp0_before);
 
   /* not available on SandyBridge-EP */
-  if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE)) {
-     result=read_msr(fd,MSR_PP1_ENERGY_STATUS);  
+  if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
+	(cpu_model==CPU_HASWELL)) {
+     result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
      pp1_before=(double)result*energy_units;
      printf("PowerPlane1 (on-core GPU if avail) before: %.6fJ\n",pp1_before);
   }
@@ -247,20 +251,21 @@ int main(int argc, char **argv) {
   printf("Package energy after: %.6f  (%.6fJ consumed)\n",
 	 package_after,package_after-package_before);
 
-  result=read_msr(fd,MSR_PP0_ENERGY_STATUS);  
+  result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
   pp0_after=(double)result*energy_units;
   printf("PowerPlane0 (core) for core %d energy after: %.6f  (%.6fJ consumed)\n",
 	 core,pp0_after,pp0_after-pp0_before);
 
   /* not available on SandyBridge-EP */
-  if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE)) {
-     result=read_msr(fd,MSR_PP1_ENERGY_STATUS);  
+  if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
+	(cpu_model==CPU_HASWELL)) {
+     result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
      pp1_after=(double)result*energy_units;
      printf("PowerPlane1 (on-core GPU if avail) after: %.6f  (%.6fJ consumed)\n",
 	 pp1_after,pp1_after-pp1_before);
   }
   else {
-     result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);  
+     result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
      dram_after=(double)result*energy_units;
      printf("DRAM energy after: %.6f  (%.6fJ consumed)\n",
 	 dram_after,dram_after-dram_before);
