@@ -4,9 +4,14 @@
 /* The /dev/cpu/??/msr driver must be enabled and permissions set     */
 /* to allow read access for this to work.                             */
 /*                                                                    */
+/* Code to properly get this info from Linux through a real device    */
+/*   driver and the perf tool should be available as of Linux 3.14    */
 /* Compile with:   gcc -O2 -Wall -o rapl-read rapl-read.c -lm         */
 /*                                                                    */
-/* Vince Weaver -- vincent.weaver @ maine.edu -- 20 June 2013         */
+/* Vince Weaver -- vincent.weaver @ maine.edu -- 29 November 2013     */
+/*                                                                    */
+/* Additional contributions by:                                       */
+/*   Romain Dolbeau -- romain @ dolbeau.org                           */
 
 #include <stdio.h>
 #include <stdlib.h>
