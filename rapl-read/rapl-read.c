@@ -182,14 +182,30 @@ int main(int argc, char **argv) {
   double dram_before=0.0,dram_after;
   double thermal_spec_power,minimum_power,maximum_power,time_window;
   int cpu_model;
+  int c;
 
   printf("\n");
+
+  opterr=0;
+
+  while ((c = getopt (argc, argv, "c:")) != -1) {
+    switch (c)
+    {
+    case 'c':
+      core = atoi(optarg);
+      break;
+    default:
+      exit(-1);
+    }
+  }
 
   cpu_model=detect_cpu();
   if (cpu_model<0) {
 	printf("Unsupported CPU type\n");
 	return -1;
   }
+
+  printf("Checking core #%d\n",core);
 
   fd=open_msr(core);
 
