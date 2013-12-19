@@ -1,0 +1,99 @@
+Reads out the status of the rasp-pi branch predictor.
+
+Trying to find out why the values we see on rasp-pi are higher than we expect.
+Some relevant excerpts from the docs:
+
+According to the ARM11 docs,
+http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dai0195b/index.html
+	Event 0x5 counts branch instruction execution. 
+	Event 0x6 counts branch mis-prediction which necessitates a pipeline flush. 
+	Event 0xD counts any change to the program counter which does not involve a 
+	mode change – this includes taken branches.
+
+	After reset, all ARM11 branch prediction features are disabled. 
+	The processor assumes a linear program flow with all branches 
+	assumed to be not taken (even if they are unconditional). 
+	Branches are still counted as mis-predicted under these conditions, 
+	when they are taken and change the program flow.
+
+	Turning on program flow prediction via the Z bit in the 
+	CP15 control register enables all three forms of prediction: 
+	static branch prediction, dynamic branch prediction and return stack usage. 
+	These three features are individually enabled by the auxiliary control register.
+
+	Branch prediction ratio can be measured as 1 – event0x6 / event0x5. 
+
+also:
+	http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0360f/ch06s02s03.html
+
+	5.2.3. Static branch predictor
+
+	The second level of branch prediction in the processor uses static 
+	branch prediction that is based solely on the characteristics of a 
+	branch instruction. It does not make use of any history information. 
+	The scheme used in the ARM1176JZ-S processor predicts that all 
+	forward conditional branches are not taken and all backward branches 
+	are taken. Around 65% of all branches are preceded by enough 
+	non-branch cycles to be completely predicted.
+
+	Branch prediction is performed only when the Z bit in CP15 
+	Register c1 is set to 1. See c1, Control Register for details of t
+	his register. Dynamic prediction works on the basis of caching 
+	the previously seen branches in the BTAC, and like all caches 
+	suffers from the compulsory miss that exists on the first 
+	encountering of the branch by the predictor. A second static 
+	predictor is added to the design to counter these misses, 
+	and to deal with any capacity and conflict misses in the BTAC. 
+	The static predictor amounts to an early evaluation of branches in the pipeline, combined with a predictor based on the direction of the branches to handle the evaluation of condition codes that are not known at the time of the handling of these branches. Only items that have not been predicted in the dynamic 
+	predictor are handled by the static predictor.
+
+	The static branch predictor is hard-wired with backward branches 
+	being predicted as taken, and forward branches as not taken. 
+	The SBP looks at the MSB of the branch offset to determine the 
+	branch direction. Statically predicted taken branches incur a 
+	one-cycle delay before the target instructions start 
+	refilling the pipeline. The SBP works in both ARM and Thumb states. 
+	The SBP does not function in Jazelle state.
+
+	Dynamic:
+
+	The first line of branch prediction in the processor is dynamic, 
+	through a simple BTAC. It is virtually addressed and holds virtual 
+	target addresses. In addition, a two bit value holds the prediction 
+	history of the branch. If the address mappings change, this cache must 
+	be flushed. [why? it might hurt performance but shouldn't be inccorrect, 
+	should it? --vince]  A dynamic branch predictor flush is included in the CP15 
+	coprocessor control instructions. Also included are direct dynamic 
+	branch predictor flush from main TLB and integer core.
+
+	A BTAC works by storing the existence of branches at particular 
+	locations in memory. The branch target address and a prediction 
+	of whether or not it might be taken is also stored.
+
+	The BTAC provides dynamic prediction of branches, including BL and BLX 
+	instructions in both ARM, Thumb, and Jazelle states. The BTAC is a 
+	128-entry direct-mapped cache structure used for allocation of 
+	Branch Target Addresses for resolved branches. The BTAC uses a 
+	2-bit saturating prediction history scheme to provide the dynamic 
+	branch prediction. When a branch has been allocated into the BTAC, 
+	it is only evicted in the case of a capacity clash. That is, by 
+	another branch at the same index.
+
+	The history is updated for each occurrence of the branch. This 
+	updating is scheduled by the integer core when the branch has been resolved.
+
+	Branch entries are allocated into the BTAC after having been resolved 
+	at Execute. BTAC hits enable branch prediction with zero cycle delay. 
+	When a BTAC hit occurs, the Branch Target Address stored in the BTAC 
+	is used as the Program Counter for the next Fetch. Both branches 
+	resolved taken and not taken are allocated into the BTAC. This 
+	enables the BTAC to do the most useful amount of work and improves 
+	performance for tight backward branching loops.
+
+	Folding:
+
+	Branch folding is a technique where, on the prediction of most 
+	branches, the branch instruction is completely removed from 
+	the instruction stream presented to the execution pipeline. 
+	Branch folding can significantly improve the performance of 
+	branches, taking the CPI for branches significantly lower than 1.
