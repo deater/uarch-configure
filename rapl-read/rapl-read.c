@@ -288,7 +288,11 @@ int main(int argc, char **argv) {
      int pp1_policy=(int)result&0x001f;
      printf("PowerPlane1 (on-core GPU if avail) %d policy: %d\n",core,pp1_policy);
   }
-  else {
+
+	/* Despite documentation saying otherwise, it looks like */
+	/* You can get DRAM readings on regular Haswell          */
+  if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
+	(cpu_model==CPU_HASWELL)) {
      result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
      dram_before=(double)result*energy_units;
      printf("DRAM energy before: %.6fJ\n",dram_before);
@@ -297,7 +301,7 @@ int main(int argc, char **argv) {
   printf("\nSleeping 1 second\n\n");
   sleep(1);
 
-  result=read_msr(fd,MSR_PKG_ENERGY_STATUS);  
+  result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
   package_after=(double)result*energy_units;
   printf("Package energy after: %.6f  (%.6fJ consumed)\n",
 	 package_after,package_after-package_before);
@@ -315,7 +319,9 @@ int main(int argc, char **argv) {
      printf("PowerPlane1 (on-core GPU if avail) after: %.6f  (%.6fJ consumed)\n",
 	 pp1_after,pp1_after-pp1_before);
   }
-  else {
+
+  if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
+	(cpu_model==CPU_HASWELL)) {
      result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
      dram_after=(double)result*energy_units;
      printf("DRAM energy after: %.6f  (%.6fJ consumed)\n",
