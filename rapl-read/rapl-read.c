@@ -106,7 +106,7 @@ long long read_msr(int fd, int which) {
 #define CPU_IVYBRIDGE_EP	62
 #define CPU_HASWELL		60
 
-int detect_cpu(void) {
+static int detect_cpu(void) {
 
 	FILE *fff;
 
@@ -170,10 +170,13 @@ int detect_cpu(void) {
 	return model;
 }
 
-int main(int argc, char **argv) {
+
+/*******************************/
+/* MSR code                    */
+/*******************************/
+static int rapl_msr(int core) {
 
   int fd;
-  int core=0;
   long long result;
   double power_units,energy_units,time_units;
   double package_before,package_after;
@@ -182,22 +185,6 @@ int main(int argc, char **argv) {
   double dram_before=0.0,dram_after;
   double thermal_spec_power,minimum_power,maximum_power,time_window;
   int cpu_model;
-  int c;
-
-  printf("\n");
-
-  opterr=0;
-
-  while ((c = getopt (argc, argv, "c:")) != -1) {
-    switch (c)
-    {
-    case 'c':
-      core = atoi(optarg);
-      break;
-    default:
-      exit(-1);
-    }
-  }
 
   cpu_model=detect_cpu();
   if (cpu_model<0) {
@@ -211,7 +198,7 @@ int main(int argc, char **argv) {
 
   /* Calculate the units used */
   result=read_msr(fd,MSR_RAPL_POWER_UNIT);
-  
+
   power_units=pow(0.5,(double)(result&0xf));
   energy_units=pow(0.5,(double)((result>>8)&0x1f));
   time_units=pow(0.5,(double)((result>>16)&0xf));
@@ -332,6 +319,41 @@ int main(int argc, char **argv) {
   printf("Note: the energy measurements can overflow in 60s or so\n");
   printf("      so try to sample the counters more often than that.\n\n");
   close(fd);
+
+  return 0;
+}
+
+int main(int argc, char **argv) {
+
+  int c;
+  int force_msr=0;
+  int core=0;
+
+  printf("\n");
+
+  opterr=0;
+
+  while ((c = getopt (argc, argv, "c:m")) != -1) {
+    switch (c)
+    {
+    case 'c':
+      core = atoi(optarg);
+      break;
+    case 'm':
+      force_msr = 1;
+      break;
+    default:
+      exit(-1);
+    }
+  }
+
+  if (!force_msr) {
+
+  }
+
+  rapl_msr(core);
+
+
 
   return 0;
 }
