@@ -323,37 +323,45 @@ static int rapl_msr(int core) {
   return 0;
 }
 
+static int rapl_perf(void) {
+
+	return -1;
+}
+
 int main(int argc, char **argv) {
 
-  int c;
-  int force_msr=0;
-  int core=0;
+	int c;
+	int force_msr=0;
+	int core=0;
+	int result;
 
-  printf("\n");
+	printf("\n");
 
-  opterr=0;
+	opterr=0;
 
-  while ((c = getopt (argc, argv, "c:m")) != -1) {
-    switch (c)
-    {
-    case 'c':
-      core = atoi(optarg);
-      break;
-    case 'm':
-      force_msr = 1;
-      break;
-    default:
-      exit(-1);
-    }
-  }
+	while ((c = getopt (argc, argv, "c:hm")) != -1) {
+		switch (c) {
+		case 'c':
+			core = atoi(optarg);
+			break;
+		case 'h':
+			printf("Usage: %s [-c core] [-h] [-m]\n\n",argv[0]);
+			exit(0);
+		case 'm':
+			force_msr = 1;
+			break;
+		default:
+			exit(-1);
+		}
+	}
 
-  if (!force_msr) {
+	if (!force_msr) {
+		result=rapl_perf();
+	}
 
-  }
+	if (result<0) {
+		result=rapl_msr(core);
+	}
 
-  rapl_msr(core);
-
-
-
-  return 0;
+	return 0;
 }
