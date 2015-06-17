@@ -373,7 +373,7 @@ char rapl_domain_names[NUM_RAPL_DOMAINS][30]= {
 	"energy-cores",
 	"energy-gpu",
 	"energy-pkg",
-	"energy-dram",
+	"energy-ram",
 };
 
 static int rapl_perf(int core) {
