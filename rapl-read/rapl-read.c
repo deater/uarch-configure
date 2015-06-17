@@ -367,17 +367,27 @@ static int perf_event_open(struct perf_event_attr *hw_event_uptr,
                         group_fd, flags);
 }
 
+#define NUM_RAPL_DOMAINS	4
+
+char rapl_domain_names[NUM_RAPL_DOMAINS][30]= {
+	"energy-cores",
+	"energy-gpu",
+	"energy-pkg",
+	"energy-dram",
+};
 
 static int rapl_perf(int core) {
 
 	FILE *fff;
 	int type;
 	int config=0;
-	double scale=0.0;
 	char units[BUFSIZ];
-	int fd;
+	char filename[BUFSIZ];
+	int fd[NUM_RAPL_DOMAINS];
+	double scale[NUM_RAPL_DOMAINS];
 	struct perf_event_attr attr;
 	long long value;
+	int i;
 
 	fff=fopen("/sys/bus/event_source/devices/power/type","r");
 	if (fff==NULL) {
@@ -388,45 +398,75 @@ static int rapl_perf(int core) {
 	fscanf(fff,"%d",&type);
 	fclose(fff);
 
-	fff=fopen("/sys/bus/event_source/devices/power/events/energy-pkg","r");
-	if (fff!=NULL) {
-		fscanf(fff,"event=%x",&config);
-		printf("Found config=%d\n",config);
-		fclose(fff);
-	}
+	printf("Using perf_event to gather RAPL results\n");
+	printf("For raw msr results use the -m option\n\n");
 
+	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
 
-	fff=fopen("/sys/bus/event_source/devices/power/events/energy-pkg.scale","r");
-	if (fff!=NULL) {
-		fscanf(fff,"%lf",&scale);
-		printf("Found config=%g\n",scale);
-		fclose(fff);
-	}
+		fd[i]=-1;
 
+		sprintf(filename,"/sys/bus/event_source/devices/power/events/%s",
+			rapl_domain_names[i]);
 
-	fff=fopen("/sys/bus/event_source/devices/power/events/energy-pkg.unit","r");
-	if (fff!=NULL) {
-		fscanf(fff,"%s",units);
-		printf("Found units=%s\n",units);
-		fclose(fff);
-	}
+		fff=fopen(filename,"r");
 
-	attr.type=type;
-	attr.config=config;
+		if (fff!=NULL) {
+			fscanf(fff,"event=%x",&config);
+			printf("Found config=%d\n",config);
+			fclose(fff);
+		} else {
+			continue;
+		}
 
-	fd=perf_event_open(&attr,-1,core,-1,0);
-	if (fd<0) {
-		printf("error opening: %s\n",strerror(errno));
+		sprintf(filename,"/sys/bus/event_source/devices/power/events/%s.scale",
+			rapl_domain_names[i]);
+		fff=fopen(filename,"r");
+
+		if (fff!=NULL) {
+			fscanf(fff,"%lf",&scale[i]);
+			printf("Found scale=%g\n",scale[i]);
+			fclose(fff);
+		}
+
+		sprintf(filename,"/sys/bus/event_source/devices/power/events/%s.unit",
+			rapl_domain_names[i]);
+		fff=fopen(filename,"r");
+
+		if (fff!=NULL) {
+			fscanf(fff,"%s",units);
+			printf("Found units=%s\n",units);
+			fclose(fff);
+		}
+
+		attr.type=type;
+		attr.config=config;
+
+		fd[i]=perf_event_open(&attr,-1,core,-1,0);
+		if (fd[i]<0) {
+			if (errno==EPERM) {
+				printf("Permission denied; run as root or adjust paranoid value\n");
+				return -1;
+			}
+			else {
+				printf("error opening: %s\n",strerror(errno));
+				return -1;
+			}
+		}
 	}
 
 	printf("\nSleeping 1 second\n\n");
 	sleep(1);
 
-	read(fd,&value,8);
+	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+		if (fd[i]!=-1) {
+			read(fd[i],&value,8);
+			close(fd[i]);
 
-	close(fd);
-
-	printf("Package Energy Consumed: %lf %s\n",(double)value*scale,units);
+			printf("%s Energy Consumed: %lf %s\n",
+				rapl_domain_names[i],
+				(double)value*scale[i],units);
+		}
+	}
 
 	return 0;
 }
