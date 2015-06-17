@@ -443,7 +443,7 @@ static int rapl_perf(int core) {
 
 		fd[i]=perf_event_open(&attr,-1,core,-1,0);
 		if (fd[i]<0) {
-			if (errno==EPERM) {
+			if (errno==EACCES) {
 				printf("Permission denied; run as root or adjust paranoid value\n");
 				return -1;
 			}
