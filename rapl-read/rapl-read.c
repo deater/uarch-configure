@@ -1,17 +1,21 @@
-/* Read the RAPL registers on a sandybridge-ep machine                */
-/* Code based on Intel RAPL driver by Zhang Rui <rui.zhang@intel.com> */
-/*                                                                    */
-/* The /dev/cpu/??/msr driver must be enabled and permissions set     */
-/* to allow read access for this to work.                             */
-/*                                                                    */
-/* Code to properly get this info from Linux through a real device    */
-/*   driver and the perf tool should be available as of Linux 3.14    */
-/* Compile with:   gcc -O2 -Wall -o rapl-read rapl-read.c -lm         */
-/*                                                                    */
-/* Vince Weaver -- vincent.weaver @ maine.edu -- 16 June 2015         */
-/*                                                                    */
-/* Additional contributions by:                                       */
-/*   Romain Dolbeau -- romain @ dolbeau.org                           */
+/* Read the RAPL registers on recent (>sandybridge) Intel processors	*/
+/*									*/
+/* Code originally based on a (never made it upstream) linux-kernel	*/
+/*	RAPL driver by Zhang Rui <rui.zhang@intel.com>			*/
+/*	https://lkml.org/lkml/2011/5/26/93				*/
+/* Additional contributions by:						*/
+/*	Romain Dolbeau -- romain @ dolbeau.org				*/
+/*									*/
+/* For raw MSR access the /dev/cpu/??/msr driver must be enabled and	*/
+/*	permissions set to allow read access.				*/
+/*									*/
+/* perf_event_open() support requires at least Linux 3.14 and to have	*/
+/*	/proc/sys/kernel/perf_event_paranoid < 1			*/
+/*									*/
+/* Compile with:   gcc -O2 -Wall -o rapl-read rapl-read.c -lm		*/
+/*									*/
+/* Vince Weaver -- vincent.weaver @ maine.edu -- 11 September 2015	*/
+/*									*/
 
 #include <stdio.h>
 #include <stdlib.h>
