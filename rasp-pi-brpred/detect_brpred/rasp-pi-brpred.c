@@ -1,5 +1,6 @@
 /*
- * rasp-pi-brpred.c -- read the status of the branch predictor
+ * rasp-pi-brpred.c -- read the status of the branch predictor config
+ * on ARM1176 BC2835 as found on Pi A/B/A+/B+/Zero
  */
 
 
@@ -13,9 +14,19 @@
 
 static int __init rasp_pi_brpred_init(void)
 {
-	int control=0,aux=0;
+	uint32_t control=0,aux=0,scr=0;
 
 	printk(KERN_INFO "VMW: Start\n");
+
+#if 0
+	/* I always worry that TrustZone is blocking access.     */
+	/* But I think if Linux is running then TrustZone is not */
+
+	/* read SCR register */
+        asm volatile("mrc p15, 0, %0, c1, c1, 0\n"
+                     : "=r" (scr));
+	printk(KERN_INFO "VMW: scr=%x\n",scr);
+#endif
 
 	/* read control register */
 	/* Bit 11 "Z" is whether Program Flow Prediction is enabled */
@@ -40,11 +51,6 @@ static int __init rasp_pi_brpred_init(void)
 		(aux&0x2)?"enabled":"disabled",
 		(aux&0x1)?"enabled":"disabled"
 		);
-
-// write
-//        asm volatile("mce p15, 0, %0, c15, c12, 0\n"
-///                   : "+r" (control));
-
 
 	return 0;
 }
