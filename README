@@ -8,6 +8,7 @@ Included:
   cortex-a9-cache    : disable cache on Cortex A9
   cortex-a9-config   : reads config info on Cortex A9
   cortex-a9-prefetch : disable L2 cache on Cortex A9
+  intel-prefetch     : disable prefetch on most modern intel processors
   r12k-brpred : set values for MIPS R12000 branch predictors
   rapl-read   : read x86 RAPL power/energy info
   rasp-pi-pmu : tests performance counters on raspberry pi ARM 1176
@@ -19,5 +20,4 @@ TODO:
 
 Vince Weaver
 vincent.weaver@maine.edu
-11 April 2013
-
+26 February 2016

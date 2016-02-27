@@ -1,0 +1,3 @@
+Program to disable the hardware prefetcher on various Intel processors.
+
+Core2 uses 0x1a0 MSR, NHM and newer 0x1a4
