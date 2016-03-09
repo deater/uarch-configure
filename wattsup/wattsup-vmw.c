@@ -407,46 +407,48 @@ static int open_device(char *device_name) {
 }
 
 
+/* Do the annoying Linux serial setup */
 static int setup_serial_device(int fd) {
 
-   struct termios t;
-   int ret;
+	struct termios t;
+	int ret;
 
-   /* get the current attributes */
-   ret = tcgetattr(fd, &t);
-   if (ret) {
-      return ret;
-   }
-	
-   /* set terminal to "raw" mode */
-   cfmakeraw(&t);
-   
-   /* set input speed to 9600 */
-   //   cfsetispeed(&t, B9600);
-   cfsetispeed(&t, B115200);
+	/* get the current attributes */
+	ret = tcgetattr(fd, &t);
+	if (ret) {
+		fprintf(stderr,"tcgetattr failed, %s\n",strerror(errno));
+		return ret;
+	}
 
-   /* set output speed to 115200 */
-   cfsetospeed(&t, B115200);
-   //cfsetospeed(&t, B9600);
+	/* set terminal to "raw" mode */
+	cfmakeraw(&t);
 
-   /* discard any data received but not read */
-   tcflush(fd, TCIFLUSH);
+	/* set input speed to 115200 */
+	/* (original code did B9600 ??? */
+	cfsetispeed(&t, B115200);
 
-   /* 8N1 */
-   t.c_cflag &= ~PARENB;
-   t.c_cflag &= ~CSTOPB;
-   t.c_cflag &= ~CSIZE;
-   t.c_cflag |= CS8;
+	/* set output speed to 115200 */
+	cfsetospeed(&t, B115200);
 
-   /* set the attributes */
-   ret = tcsetattr(fd, TCSANOW, &t);
+	/* discard any data received but not read */
+	tcflush(fd, TCIFLUSH);
 
-   if (ret) {
-      fprintf(stderr,"ERROR: setting terminal attributes\n");
-      return ret;
-   }
+	/* 8N1 */
+	t.c_cflag &= ~PARENB;
+	t.c_cflag &= ~CSTOPB;
+	t.c_cflag &= ~CSIZE;
+	t.c_cflag |= CS8;
 
-   return 0;
+	/* set the new attributes */
+	ret = tcsetattr(fd, TCSANOW, &t);
+
+	if (ret) {
+		fprintf(stderr,"ERROR: setting terminal attributes, %s\n",
+			strerror(errno));
+		return ret;
+	}
+
+	return 0;
 }
 
 
@@ -1137,7 +1139,9 @@ int main(int argc, char ** argv) {
 		return wu_fd;
 	}
 
-	if (debug) fprintf(stderr,"DEBUG: %s is opened\n", device_name);
+	if (debug) {
+		fprintf(stderr,"DEBUG: %s is opened\n", device_name);
+	}
 
 	ret = setup_serial_device(wu_fd);
 	if (ret) {
