@@ -19,8 +19,17 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
+#include <signal.h>
+
 static int debug=1;
 
+static int done_running=0;
+static int missed_samples=0;
+
+static void ctrlc_handler(int sig, siginfo_t *foo, void *bar) {
+
+	done_running=1;
+}
 
 /* start the external logging of power info */
 /* #L,W,3,E,<Reserved>,<Interval>; */
@@ -39,6 +48,34 @@ static int wu_start_external_log(int wu_fd, int interval) {
 	ret=write(wu_fd,command,length);
 	if (ret!=length) {
 		fprintf(stderr,"Error starting logging %s!\n",
+			strerror(errno));
+		return -1;
+	}
+
+	sleep(1);
+
+	return 0;
+}
+
+
+/* stop the external logging of power info */
+/* This is not in the documentation? */
+/* #L,R,0; */
+static int wu_stop_external_log(int wu_fd) {
+
+	char command[BUFSIZ];
+	int ret,length;
+
+	if (debug) fprintf(stderr,"Disabling logging...\n");
+
+	sprintf(command,"#L,R,0;");
+	if (debug) fprintf(stderr,"%s\n",command);
+
+	length=strlen(command);
+
+	ret=write(wu_fd,command,length);
+	if (ret!=length) {
+		fprintf(stderr,"Error stopping logging %s!\n",
 			strerror(errno));
 		return -1;
 	}
@@ -170,6 +207,7 @@ static int wu_read(int fd) {
 
 	if ((double_time-prev_time>1.2) && (prev_time!=0.0)) {
 		fprintf(stderr,"Error!  More than 1s between times!\n");
+		missed_samples++;
 	}
 
 
@@ -217,7 +255,7 @@ int main(int argc, char ** argv) {
 	int ret;
 	char device_name[BUFSIZ];
 	int wu_fd = 0;
-
+	struct sigaction sa;
 
 	/* Check command line */
 	if (argc>1) {
@@ -229,6 +267,17 @@ int main(int argc, char ** argv) {
 
 	/* Print help? */
 	/* Print version? */
+
+
+	/* setup control-c handler */
+	memset(&sa, 0, sizeof(struct sigaction));
+	sa.sa_sigaction = ctrlc_handler;
+	sa.sa_flags = SA_SIGINFO;
+
+	if (sigaction( SIGINT, &sa, NULL) < 0) {
+		fprintf(stderr,"Error setting up signal handler\n");
+		return -1;
+	}
 
 	/*************************/
 	/* Open device           */
@@ -260,9 +309,16 @@ int main(int argc, char ** argv) {
 	while (1) {
 		ret = wu_read(wu_fd);
 		usleep(500000);
+
+		if (done_running) break;
 	}
 
+	wu_stop_external_log(wu_fd);
+
+	printf("(* %d missed samples *)\n",missed_samples);
+
 	close(wu_fd);
+
 	return 0;
 }
 
