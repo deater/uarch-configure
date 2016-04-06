@@ -1,6 +1,12 @@
 /* Read the RAPL registers on recent (>sandybridge) Intel processors	*/
 /*									*/
-/* Code originally based on a (never made it upstream) linux-kernel	*/
+/* There are currently three ways to do this:				*/
+/*	1. Read the MSRs directly with /dev/cpu/??/msr			*/
+/*	2. Use the perf_event_open() interface				*/
+/*	3. Read the values from the sysfs powercap interface		*/
+/*									*/
+/*									*/
+/* MSR Code originally based on a (never made it upstream) linux-kernel	*/
 /*	RAPL driver by Zhang Rui <rui.zhang@intel.com>			*/
 /*	https://lkml.org/lkml/2011/5/26/93				*/
 /* Additional contributions by:						*/
@@ -11,6 +17,9 @@
 /*									*/
 /* perf_event_open() support requires at least Linux 3.14 and to have	*/
 /*	/proc/sys/kernel/perf_event_paranoid < 1			*/
+/*									*/
+/* the sysfs powercap interface got into the kernel in 			*/
+/*	2d281d8196e38dd (3.13)						*/
 /*									*/
 /* Compile with:   gcc -O2 -Wall -o rapl-read rapl-read.c -lm		*/
 /*									*/
@@ -509,6 +518,100 @@ static int rapl_perf(int core) {
 	return 0;
 }
 
+static int rapl_sysfs(int core) {
+
+	char event_names[NUM_RAPL_DOMAINS][256];
+	char filenames[NUM_RAPL_DOMAINS][256];
+	char basename[256];
+	char tempfile[256];
+	long long before[NUM_RAPL_DOMAINS];
+	long long after[NUM_RAPL_DOMAINS];
+	int valid[NUM_RAPL_DOMAINS];
+	int i;
+	FILE *fff;
+
+	printf("Using sysfs powercap interface to gather results\n\n");
+
+	/* /sys/class/powercap/intel-rapl/intel-rapl:0/ */
+	/* name has name */
+	/* energy_uj has energy */
+	/* subdirectories intel-rapl:0:0 intel-rapl:0:1 intel-rapl:0:2 */
+
+	i=0;
+	sprintf(basename,"/sys/class/powercap/intel-rapl/intel-rapl:%d",
+		core);
+	sprintf(tempfile,"%s/name",basename);
+	fff=fopen(tempfile,"r");
+	if (fff==NULL) {
+		fprintf(stderr,"Could not open %s\n",tempfile);
+		return -1;
+	}
+	fscanf(fff,"%s",event_names[i]);
+	valid[i]=1;
+	fclose(fff);
+	sprintf(filenames[i],"%s/energy_uj",basename);
+
+	/* Handle subdomains */
+	for(i=1;i<NUM_RAPL_DOMAINS;i++) {
+		sprintf(tempfile,"%s/intel-rapl:%d:%d/name",
+			basename,core,i-1);
+		fff=fopen(tempfile,"r");
+		if (fff==NULL) {
+			fprintf(stderr,"Could not open %s\n",tempfile);
+			valid[i]=0;
+			continue;
+		}
+		valid[i]=1;
+		fscanf(fff,"%s",event_names[i]);
+		fclose(fff);
+		sprintf(filenames[i],"%s/intel-rapl:%d:%d/energy_uj",
+			basename,core,i-1);
+
+	}
+
+	/* Gather before values */
+	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+		if (valid[i]) {
+			fff=fopen(filenames[i],"r");
+			if (fff==NULL) {
+				fprintf(stderr,"Error opening %s!\n",filenames[i]);
+			}
+			else {
+				fscanf(fff,"%lld",&before[i]);
+			}
+			fclose(fff);
+		}
+	}
+
+	printf("\nSleeping 1 second\n\n");
+	sleep(1);
+
+	/* Gather after values */
+	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+		if (valid[i]) {
+			fff=fopen(filenames[i],"r");
+			if (fff==NULL) {
+				fprintf(stderr,"Error opening %s!\n",filenames[i]);
+			}
+			else {
+				fscanf(fff,"%lld",&after[i]);
+			}
+			fclose(fff);
+		}
+	}
+
+
+	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+		if (valid[i]) {
+			printf("%s\t: %lfJ\n",event_names[i],
+				((double)after[i]-(double)before[i])/1000000.0);
+		}
+	}
+
+	return 0;
+
+}
+
 int main(int argc, char **argv) {
 
 	int c;
@@ -546,7 +649,13 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	if (!force_msr) {
+	(void)force_sysfs;
+
+	if ((!force_msr) && (!force_perf_event)) {
+		result=rapl_sysfs(core);
+	}
+
+	if ((result<0) || (force_perf_event)) {
 		result=rapl_perf(core);
 	}
 
