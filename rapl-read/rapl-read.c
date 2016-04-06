@@ -443,6 +443,7 @@ static int rapl_perf(int core) {
 			fclose(fff);
 		}
 
+		memset(&attr,0x0,sizeof(attr));
 		attr.type=type;
 		attr.config=config;
 
@@ -453,7 +454,8 @@ static int rapl_perf(int core) {
 				return -1;
 			}
 			else {
-				printf("error opening: %s\n",strerror(errno));
+				printf("error opening core %d: %s\n",
+					i, strerror(errno));
 				return -1;
 			}
 		}
@@ -514,7 +516,7 @@ int main(int argc, char **argv) {
 	if (result<0) {
 
 		printf("Unable to read RAPL counters.\n");
-		printf("* Verify you have an Intel Sandybridge, Ivybridge or Haswell processor\n");
+		printf("* Verify you have an Intel Sandybridge or newer processor\n");
 		printf("* You may need to run as root or have /proc/sys/kernel/perf_event_paranoid set properly\n");
 		printf("* If using raw msr access, make sure msr module is installed\n");
 		printf("\n");
