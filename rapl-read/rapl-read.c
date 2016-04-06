@@ -73,38 +73,39 @@
 
 static int open_msr(int core) {
 
-  char msr_filename[BUFSIZ];
-  int fd;
+	char msr_filename[BUFSIZ];
+	int fd;
 
-  sprintf(msr_filename, "/dev/cpu/%d/msr", core);
-  fd = open(msr_filename, O_RDONLY);
-  if ( fd < 0 ) {
-    if ( errno == ENXIO ) {
-      fprintf(stderr, "rdmsr: No CPU %d\n", core);
-      exit(2);
-    } else if ( errno == EIO ) {
-      fprintf(stderr, "rdmsr: CPU %d doesn't support MSRs\n", core);
-      exit(3);
-    } else {
-      perror("rdmsr:open");
-      fprintf(stderr,"Trying to open %s\n",msr_filename);
-      exit(127);
-    }
-  }
+	sprintf(msr_filename, "/dev/cpu/%d/msr", core);
+	fd = open(msr_filename, O_RDONLY);
+	if ( fd < 0 ) {
+		if ( errno == ENXIO ) {
+			fprintf(stderr, "rdmsr: No CPU %d\n", core);
+			exit(2);
+		} else if ( errno == EIO ) {
+			fprintf(stderr, "rdmsr: CPU %d doesn't support MSRs\n",
+					core);
+			exit(3);
+		} else {
+			perror("rdmsr:open");
+			fprintf(stderr,"Trying to open %s\n",msr_filename);
+			exit(127);
+		}
+	}
 
-  return fd;
+	return fd;
 }
 
 static long long read_msr(int fd, int which) {
 
-  uint64_t data;
+	uint64_t data;
 
-  if ( pread(fd, &data, sizeof data, which) != sizeof data ) {
-    perror("rdmsr:pread");
-    exit(127);
-  }
+	if ( pread(fd, &data, sizeof data, which) != sizeof data ) {
+		perror("rdmsr:pread");
+		exit(127);
+	}
 
-  return (long long)data;
+	return (long long)data;
 }
 
 #define CPU_SANDYBRIDGE		42
