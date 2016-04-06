@@ -112,10 +112,12 @@ static long long read_msr(int fd, int which) {
 #define CPU_SANDYBRIDGE_EP	45
 #define CPU_IVYBRIDGE		58
 #define CPU_IVYBRIDGE_EP	62
-#define CPU_HASWELL		60
+#define CPU_HASWELL		60	// 69,70 too?
 #define CPU_HASWELL_EP		63
-#define CPU_BROADWELL		61
-
+#define CPU_BROADWELL		61	// 71 too?
+#define CPU_BROADWELL_EP	79
+#define CPU_BROADWELL_DE	86
+#define CPU_SKYLAKE		78	// 94 too?
 
 
 static int detect_cpu(void) {
@@ -381,6 +383,28 @@ char rapl_domain_names[NUM_RAPL_DOMAINS][30]= {
 	"energy-ram",
 };
 
+
+static int check_paranoid(void) {
+
+	int paranoid_value;
+	FILE *fff;
+
+	fff=fopen("/proc/sys/kernel/perf_event_paranoid","r");
+	if (fff==NULL) {
+		fprintf(stderr,"Error! could not open /proc/sys/kernel/perf_event_paranoid %s\n",
+			strerror(errno));
+
+		/* We can't return a negative value as that implies no paranoia */
+		return 500;
+	}
+
+	fscanf(fff,"%d",&paranoid_value);
+	fclose(fff);
+
+	return paranoid_value;
+
+}
+
 static int rapl_perf(int core) {
 
 	FILE *fff;
@@ -393,11 +417,12 @@ static int rapl_perf(int core) {
 	struct perf_event_attr attr;
 	long long value;
 	int i;
+	int paranoid_value;
 
 	fff=fopen("/sys/bus/event_source/devices/power/type","r");
 	if (fff==NULL) {
 		printf("No perf_event rapl support found (requires Linux 3.14)\n");
-		printf("Falling back to raw msr support\n");
+		printf("Falling back to raw msr support\n\n");
 		return -1;
 	}
 	fscanf(fff,"%d",&type);
@@ -450,11 +475,17 @@ static int rapl_perf(int core) {
 		fd[i]=perf_event_open(&attr,-1,core,-1,0);
 		if (fd[i]<0) {
 			if (errno==EACCES) {
-				printf("Permission denied; run as root or adjust paranoid value\n");
+				paranoid_value=check_paranoid();
+				if (paranoid_value>0) {
+					printf("/proc/sys/kernel/perf_event_paranoid is %d\n",paranoid_value);
+					printf("The value must be 0 or lower to read system-wide RAPL values\n");
+				}
+
+				printf("Permission denied; run as root or adjust paranoid value\n\n");
 				return -1;
 			}
 			else {
-				printf("error opening core %d: %s\n",
+				printf("error opening core %d: %s\n\n",
 					i, strerror(errno));
 				return -1;
 			}
