@@ -512,7 +512,7 @@ static int rapl_perf(int core) {
 int main(int argc, char **argv) {
 
 	int c;
-	int force_msr=0;
+	int force_msr=0,force_perf_event=0,force_sysfs=0;
 	int core=0;
 	int result=-1;
 
@@ -527,10 +527,20 @@ int main(int argc, char **argv) {
 			break;
 		case 'h':
 			printf("Usage: %s [-c core] [-h] [-m]\n\n",argv[0]);
+			printf("\t-c core : specifies which core to measure\n");
+			printf("\t-h      : displays this help\n");
+			printf("\t-m      : forces use of MSR mode\n");
+			printf("\t-p      : forces use of perf_event mode\n");
+			printf("\t-s      : forces use of sysfs mode\n");
 			exit(0);
 		case 'm':
 			force_msr = 1;
 			break;
+		case 'p':
+			force_perf_event = 1;
+			break;
+		case 's':
+			force_sysfs = 1;
 		default:
 			exit(-1);
 		}
