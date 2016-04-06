@@ -14,6 +14,7 @@
 /*									*/
 /* For raw MSR access the /dev/cpu/??/msr driver must be enabled and	*/
 /*	permissions set to allow read access.				*/
+/*	You might need to "modprobe msr" before it will work.		*/
 /*									*/
 /* perf_event_open() support requires at least Linux 3.14 and to have	*/
 /*	/proc/sys/kernel/perf_event_paranoid < 1			*/
@@ -644,6 +645,7 @@ int main(int argc, char **argv) {
 			break;
 		case 's':
 			force_sysfs = 1;
+			break;
 		default:
 			fprintf(stderr,"Unknown option %c\n",c);
 			exit(-1);
