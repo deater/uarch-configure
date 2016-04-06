@@ -623,7 +623,7 @@ int main(int argc, char **argv) {
 
 	opterr=0;
 
-	while ((c = getopt (argc, argv, "c:hm")) != -1) {
+	while ((c = getopt (argc, argv, "c:hmps")) != -1) {
 		switch (c) {
 		case 'c':
 			core = atoi(optarg);
@@ -645,6 +645,7 @@ int main(int argc, char **argv) {
 		case 's':
 			force_sysfs = 1;
 		default:
+			fprintf(stderr,"Unknown option %c\n",c);
 			exit(-1);
 		}
 	}
@@ -655,8 +656,10 @@ int main(int argc, char **argv) {
 		result=rapl_sysfs(core);
 	}
 
-	if ((result<0) || (force_perf_event)) {
-		result=rapl_perf(core);
+	if (result<0) {
+		if ((force_perf_event) && (!force_msr)) {
+			result=rapl_perf(core);
+		}
 	}
 
 	if (result<0) {
