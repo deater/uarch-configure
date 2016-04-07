@@ -205,7 +205,7 @@ static int detect_cpu(void) {
 }
 
 #define MAX_CPUS	1024
-#define MAX_PACKAGES	1024
+#define MAX_PACKAGES	16
 
 static int total_cores=0,total_packages=0;
 static int package_map[MAX_PACKAGES];
@@ -602,14 +602,14 @@ static int rapl_perf(int core) {
 
 static int rapl_sysfs(int core) {
 
-	char event_names[NUM_RAPL_DOMAINS][256];
-	char filenames[NUM_RAPL_DOMAINS][256];
-	char basename[256];
+	char event_names[MAX_PACKAGES][NUM_RAPL_DOMAINS][256];
+	char filenames[MAX_PACKAGES][NUM_RAPL_DOMAINS][256];
+	char basename[MAX_PACKAGES][256];
 	char tempfile[256];
-	long long before[NUM_RAPL_DOMAINS];
-	long long after[NUM_RAPL_DOMAINS];
+	long long before[MAX_PACKAGES][NUM_RAPL_DOMAINS];
+	long long after[MAX_PACKAGES][NUM_RAPL_DOMAINS];
 	int valid[NUM_RAPL_DOMAINS];
-	int i;
+	int i,j;
 	FILE *fff;
 
 	printf("\nTrying sysfs powercap interface to gather results\n\n");
@@ -620,75 +620,84 @@ static int rapl_sysfs(int core) {
 	/* subdirectories intel-rapl:0:0 intel-rapl:0:1 intel-rapl:0:2 */
 
 	i=0;
-	sprintf(basename,"/sys/class/powercap/intel-rapl/intel-rapl:%d",
-		core);
-	sprintf(tempfile,"%s/name",basename);
-	fff=fopen(tempfile,"r");
-	if (fff==NULL) {
-		fprintf(stderr,"\tCould not open %s\n",tempfile);
-		return -1;
-	}
-	fscanf(fff,"%s",event_names[i]);
-	valid[i]=1;
-	fclose(fff);
-	sprintf(filenames[i],"%s/energy_uj",basename);
-
-	/* Handle subdomains */
-	for(i=1;i<NUM_RAPL_DOMAINS;i++) {
-		sprintf(tempfile,"%s/intel-rapl:%d:%d/name",
-			basename,core,i-1);
+	for(j=0;j<total_packages;j++) {
+		sprintf(basename[j],"/sys/class/powercap/intel-rapl/intel-rapl:%d",
+			j);
+		sprintf(tempfile,"%s/name",basename[j]);
 		fff=fopen(tempfile,"r");
 		if (fff==NULL) {
 			fprintf(stderr,"\tCould not open %s\n",tempfile);
-			valid[i]=0;
-			continue;
+			return -1;
 		}
+		fscanf(fff,"%s",event_names[j][i]);
 		valid[i]=1;
-		fscanf(fff,"%s",event_names[i]);
 		fclose(fff);
-		sprintf(filenames[i],"%s/intel-rapl:%d:%d/energy_uj",
-			basename,core,i-1);
+		sprintf(filenames[j][i],"%s/energy_uj",basename[j]);
 
+		/* Handle subdomains */
+		for(i=1;i<NUM_RAPL_DOMAINS;i++) {
+			sprintf(tempfile,"%s/intel-rapl:%d:%d/name",
+				basename[j],j,i-1);
+			fff=fopen(tempfile,"r");
+			if (fff==NULL) {
+				fprintf(stderr,"\tCould not open %s\n",tempfile);
+				valid[i]=0;
+				continue;
+			}
+			valid[i]=1;
+			fscanf(fff,"%s",event_names[j][i]);
+			fclose(fff);
+			sprintf(filenames[j][i],"%s/intel-rapl:%d:%d/energy_uj",
+				basename[j],j,i-1);
+
+		}
 	}
 
 	/* Gather before values */
-	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-		if (valid[i]) {
-			fff=fopen(filenames[i],"r");
-			if (fff==NULL) {
-				fprintf(stderr,"\tError opening %s!\n",filenames[i]);
+	for(j=0;j<total_packages;j++) {
+		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+			if (valid[i]) {
+				fff=fopen(filenames[j][i],"r");
+				if (fff==NULL) {
+					fprintf(stderr,"\tError opening %s!\n",filenames[j][i]);
+				}
+				else {
+					fscanf(fff,"%lld",&before[j][i]);
+				}
+				fclose(fff);
 			}
-			else {
-				fscanf(fff,"%lld",&before[i]);
-			}
-			fclose(fff);
 		}
 	}
 
-	printf("\n\tSleeping 1 second\n\n");
+	printf("\tSleeping 1 second\n\n");
 	sleep(1);
 
 	/* Gather after values */
-	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-		if (valid[i]) {
-			fff=fopen(filenames[i],"r");
-			if (fff==NULL) {
-				fprintf(stderr,"\tError opening %s!\n",filenames[i]);
+	for(j=0;j<total_packages;j++) {
+		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+			if (valid[i]) {
+				fff=fopen(filenames[j][i],"r");
+				if (fff==NULL) {
+					fprintf(stderr,"\tError opening %s!\n",filenames[j][i]);
+				}
+				else {
+					fscanf(fff,"%lld",&after[j][i]);
+				}
+				fclose(fff);
 			}
-			else {
-				fscanf(fff,"%lld",&after[i]);
-			}
-			fclose(fff);
 		}
 	}
 
-
-	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-		if (valid[i]) {
-			printf("\t%s\t: %lfJ\n",event_names[i],
-				((double)after[i]-(double)before[i])/1000000.0);
+	for(j=0;j<total_packages;j++) {
+		printf("\tPackage %d\n",j);
+		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+			if (valid[i]) {
+				printf("\t\t%s\t: %lfJ\n",event_names[j][i],
+					((double)after[j][i]-(double)before[j][i])/1000000.0);
+			}
 		}
 	}
+	printf("\n");
 
 	return 0;
 
@@ -703,6 +712,7 @@ int main(int argc, char **argv) {
 	int cpu_model;
 
 	printf("\n");
+	printf("RAPL read -- use -s for sysfs, -p for perf_event, -m for msr\n\n");
 
 	opterr=0;
 
