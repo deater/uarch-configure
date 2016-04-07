@@ -608,7 +608,7 @@ static int rapl_sysfs(int core) {
 	char tempfile[256];
 	long long before[MAX_PACKAGES][NUM_RAPL_DOMAINS];
 	long long after[MAX_PACKAGES][NUM_RAPL_DOMAINS];
-	int valid[NUM_RAPL_DOMAINS];
+	int valid[MAX_PACKAGES][NUM_RAPL_DOMAINS];
 	int i,j;
 	FILE *fff;
 
@@ -619,8 +619,8 @@ static int rapl_sysfs(int core) {
 	/* energy_uj has energy */
 	/* subdirectories intel-rapl:0:0 intel-rapl:0:1 intel-rapl:0:2 */
 
-	i=0;
 	for(j=0;j<total_packages;j++) {
+		i=0;
 		sprintf(basename[j],"/sys/class/powercap/intel-rapl/intel-rapl:%d",
 			j);
 		sprintf(tempfile,"%s/name",basename[j]);
@@ -630,7 +630,7 @@ static int rapl_sysfs(int core) {
 			return -1;
 		}
 		fscanf(fff,"%s",event_names[j][i]);
-		valid[i]=1;
+		valid[j][i]=1;
 		fclose(fff);
 		sprintf(filenames[j][i],"%s/energy_uj",basename[j]);
 
@@ -640,11 +640,11 @@ static int rapl_sysfs(int core) {
 				basename[j],j,i-1);
 			fff=fopen(tempfile,"r");
 			if (fff==NULL) {
-				fprintf(stderr,"\tCould not open %s\n",tempfile);
-				valid[i]=0;
+				//fprintf(stderr,"\tCould not open %s\n",tempfile);
+				valid[j][i]=0;
 				continue;
 			}
-			valid[i]=1;
+			valid[j][i]=1;
 			fscanf(fff,"%s",event_names[j][i]);
 			fclose(fff);
 			sprintf(filenames[j][i],"%s/intel-rapl:%d:%d/energy_uj",
@@ -656,15 +656,15 @@ static int rapl_sysfs(int core) {
 	/* Gather before values */
 	for(j=0;j<total_packages;j++) {
 		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-			if (valid[i]) {
+			if (valid[j][i]) {
 				fff=fopen(filenames[j][i],"r");
 				if (fff==NULL) {
 					fprintf(stderr,"\tError opening %s!\n",filenames[j][i]);
 				}
 				else {
 					fscanf(fff,"%lld",&before[j][i]);
+					fclose(fff);
 				}
-				fclose(fff);
 			}
 		}
 	}
@@ -675,15 +675,15 @@ static int rapl_sysfs(int core) {
 	/* Gather after values */
 	for(j=0;j<total_packages;j++) {
 		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-			if (valid[i]) {
+			if (valid[j][i]) {
 				fff=fopen(filenames[j][i],"r");
 				if (fff==NULL) {
 					fprintf(stderr,"\tError opening %s!\n",filenames[j][i]);
 				}
 				else {
 					fscanf(fff,"%lld",&after[j][i]);
+					fclose(fff);
 				}
-				fclose(fff);
 			}
 		}
 	}
@@ -691,7 +691,7 @@ static int rapl_sysfs(int core) {
 	for(j=0;j<total_packages;j++) {
 		printf("\tPackage %d\n",j);
 		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-			if (valid[i]) {
+			if (valid[j][i]) {
 				printf("\t\t%s\t: %lfJ\n",event_names[j][i],
 					((double)after[j][i]-(double)before[j][i])/1000000.0);
 			}
