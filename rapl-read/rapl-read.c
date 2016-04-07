@@ -262,6 +262,8 @@ static int rapl_msr(int core, int cpu_model) {
 	double dram_before=0.0,dram_after;
 	double thermal_spec_power,minimum_power,maximum_power,time_window;
 
+	printf("\nTrying /dev/msr interface to gather results\n\n");
+
 	if (cpu_model<0) {
 		printf("Unsupported CPU type\n");
 		return -1;
@@ -463,31 +465,28 @@ static int rapl_perf(int core) {
 
 	FILE *fff;
 	int type;
-	int config=0;
-	char units[BUFSIZ];
+	int config[NUM_RAPL_DOMAINS];
+	char units[NUM_RAPL_DOMAINS][BUFSIZ];
 	char filename[BUFSIZ];
-	int fd[NUM_RAPL_DOMAINS];
+	int fd[NUM_RAPL_DOMAINS][MAX_PACKAGES];
 	double scale[NUM_RAPL_DOMAINS];
 	struct perf_event_attr attr;
 	long long value;
-	int i;
+	int i,j;
 	int paranoid_value;
+
+	printf("\nTrying perf_event interface to gather results\n\n");
 
 	fff=fopen("/sys/bus/event_source/devices/power/type","r");
 	if (fff==NULL) {
-		printf("No perf_event rapl support found (requires Linux 3.14)\n");
-		printf("Falling back to raw msr support\n\n");
+		printf("\tNo perf_event rapl support found (requires Linux 3.14)\n");
+		printf("\tFalling back to raw msr support\n\n");
 		return -1;
 	}
 	fscanf(fff,"%d",&type);
 	fclose(fff);
 
-	printf("Using perf_event to gather RAPL results\n");
-	printf("For raw msr results use the -m option\n\n");
-
 	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-
-		fd[i]=-1;
 
 		sprintf(filename,"/sys/bus/event_source/devices/power/events/%s",
 			rapl_domain_names[i]);
@@ -495,8 +494,8 @@ static int rapl_perf(int core) {
 		fff=fopen(filename,"r");
 
 		if (fff!=NULL) {
-			fscanf(fff,"event=%x",&config);
-			printf("Found config=%d\n",config);
+			fscanf(fff,"event=%x",&config[i]);
+			printf("\tEvent=%s Config=%d ",rapl_domain_names[i],config[i]);
 			fclose(fff);
 		} else {
 			continue;
@@ -508,7 +507,7 @@ static int rapl_perf(int core) {
 
 		if (fff!=NULL) {
 			fscanf(fff,"%lf",&scale[i]);
-			printf("Found scale=%g\n",scale[i]);
+			printf("scale=%g ",scale[i]);
 			fclose(fff);
 		}
 
@@ -517,48 +516,69 @@ static int rapl_perf(int core) {
 		fff=fopen(filename,"r");
 
 		if (fff!=NULL) {
-			fscanf(fff,"%s",units);
-			printf("Found units=%s\n",units);
+			fscanf(fff,"%s",units[i]);
+			printf("units=%s ",units[i]);
 			fclose(fff);
 		}
 
-		memset(&attr,0x0,sizeof(attr));
-		attr.type=type;
-		attr.config=config;
+		printf("\n");
+	}
 
-		fd[i]=perf_event_open(&attr,-1,core,-1,0);
-		if (fd[i]<0) {
-			if (errno==EACCES) {
-				paranoid_value=check_paranoid();
-				if (paranoid_value>0) {
-					printf("/proc/sys/kernel/perf_event_paranoid is %d\n",paranoid_value);
-					printf("The value must be 0 or lower to read system-wide RAPL values\n");
+	for(j=0;j<total_packages;j++) {
+
+		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+
+			fd[i][j]=-1;
+
+			memset(&attr,0x0,sizeof(attr));
+			attr.type=type;
+			attr.config=config[i];
+			if (config[i]==0) continue;
+
+			fd[i][j]=perf_event_open(&attr,-1, package_map[j],-1,0);
+			if (fd[i][j]<0) {
+				if (errno==EACCES) {
+					paranoid_value=check_paranoid();
+					if (paranoid_value>0) {
+						printf("\t/proc/sys/kernel/perf_event_paranoid is %d\n",paranoid_value);
+						printf("\tThe value must be 0 or lower to read system-wide RAPL values\n");
+					}
+
+					printf("\tPermission denied; run as root or adjust paranoid value\n\n");
+					return -1;
 				}
-
-				printf("Permission denied; run as root or adjust paranoid value\n\n");
-				return -1;
-			}
-			else {
-				printf("error opening core %d: %s\n\n",
-					i, strerror(errno));
-				return -1;
+				else {
+					printf("\terror opening core %d config %d: %s\n\n",
+						package_map[j], config[i], strerror(errno));
+					return -1;
+				}
 			}
 		}
 	}
 
-	printf("\nSleeping 1 second\n\n");
+	printf("\n\tSleeping 1 second\n\n");
 	sleep(1);
 
-	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
-		if (fd[i]!=-1) {
-			read(fd[i],&value,8);
-			close(fd[i]);
+	for(j=0;j<total_packages;j++) {
+		printf("\tPackage %d:\n",j);
 
-			printf("%s Energy Consumed: %lf %s\n",
-				rapl_domain_names[i],
-				(double)value*scale[i],units);
+		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
+
+			if (fd[i][j]!=-1) {
+				read(fd[i][j],&value,8);
+				close(fd[i][j]);
+
+				printf("\t\t%s Energy Consumed: %lf %s\n",
+					rapl_domain_names[i],
+					(double)value*scale[i],
+					units[i]);
+
+			}
+
 		}
+
 	}
+	printf("\n");
 
 	return 0;
 }
@@ -575,7 +595,7 @@ static int rapl_sysfs(int core) {
 	int i;
 	FILE *fff;
 
-	printf("Using sysfs powercap interface to gather results\n\n");
+	printf("\nTrying sysfs powercap interface to gather results\n\n");
 
 	/* /sys/class/powercap/intel-rapl/intel-rapl:0/ */
 	/* name has name */
@@ -588,7 +608,7 @@ static int rapl_sysfs(int core) {
 	sprintf(tempfile,"%s/name",basename);
 	fff=fopen(tempfile,"r");
 	if (fff==NULL) {
-		fprintf(stderr,"Could not open %s\n",tempfile);
+		fprintf(stderr,"\tCould not open %s\n",tempfile);
 		return -1;
 	}
 	fscanf(fff,"%s",event_names[i]);
@@ -602,7 +622,7 @@ static int rapl_sysfs(int core) {
 			basename,core,i-1);
 		fff=fopen(tempfile,"r");
 		if (fff==NULL) {
-			fprintf(stderr,"Could not open %s\n",tempfile);
+			fprintf(stderr,"\tCould not open %s\n",tempfile);
 			valid[i]=0;
 			continue;
 		}
@@ -619,7 +639,7 @@ static int rapl_sysfs(int core) {
 		if (valid[i]) {
 			fff=fopen(filenames[i],"r");
 			if (fff==NULL) {
-				fprintf(stderr,"Error opening %s!\n",filenames[i]);
+				fprintf(stderr,"\tError opening %s!\n",filenames[i]);
 			}
 			else {
 				fscanf(fff,"%lld",&before[i]);
@@ -628,7 +648,7 @@ static int rapl_sysfs(int core) {
 		}
 	}
 
-	printf("\nSleeping 1 second\n\n");
+	printf("\n\tSleeping 1 second\n\n");
 	sleep(1);
 
 	/* Gather after values */
@@ -636,7 +656,7 @@ static int rapl_sysfs(int core) {
 		if (valid[i]) {
 			fff=fopen(filenames[i],"r");
 			if (fff==NULL) {
-				fprintf(stderr,"Error opening %s!\n",filenames[i]);
+				fprintf(stderr,"\tError opening %s!\n",filenames[i]);
 			}
 			else {
 				fscanf(fff,"%lld",&after[i]);
@@ -648,7 +668,7 @@ static int rapl_sysfs(int core) {
 
 	for(i=0;i<NUM_RAPL_DOMAINS;i++) {
 		if (valid[i]) {
-			printf("%s\t: %lfJ\n",event_names[i],
+			printf("\t%s\t: %lfJ\n",event_names[i],
 				((double)after[i]-(double)before[i])/1000000.0);
 		}
 	}
