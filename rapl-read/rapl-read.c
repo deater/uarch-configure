@@ -5,7 +5,6 @@
 /*	2. Use the perf_event_open() interface				*/
 /*	3. Read the values from the sysfs powercap interface		*/
 /*									*/
-/*									*/
 /* MSR Code originally based on a (never made it upstream) linux-kernel	*/
 /*	RAPL driver by Zhang Rui <rui.zhang@intel.com>			*/
 /*	https://lkml.org/lkml/2011/5/26/93				*/
@@ -170,41 +169,88 @@ static int detect_cpu(void) {
 
 	fclose(fff);
 
+	printf("Found ");
+
 	switch(model) {
 		case CPU_SANDYBRIDGE:
-			printf("Found Sandybridge CPU\n");
+			printf("Sandybridge");
 			break;
 		case CPU_SANDYBRIDGE_EP:
-			printf("Found Sandybridge-EP CPU\n");
+			printf("Sandybridge-EP");
 			break;
 		case CPU_IVYBRIDGE:
-			printf("Found Ivybridge CPU\n");
+			printf("Ivybridge");
 			break;
 		case CPU_IVYBRIDGE_EP:
-			printf("Found Ivybridge-EP CPU\n");
+			printf("Ivybridge-EP");
 			break;
 		case CPU_HASWELL:
-			printf("Found Haswell CPU\n");
+			printf("Haswell");
 			break;
 		case CPU_HASWELL_EP:
-			printf("Found Haswell-EP CPU\n");
+			printf("Haswell-EP");
 			break;
 		case CPU_BROADWELL:
-			printf("Found Broadwell CPU\n");
+			printf("Broadwell");
 			break;
-		default:	printf("Unsupported model %d\n",model);
-				model=-1;
-				break;
+		default:
+			printf("Unsupported model %d\n",model);
+			model=-1;
+			break;
 	}
 
+	printf(" Processor type\n");
+
 	return model;
+}
+
+#define MAX_CPUS	1024
+#define MAX_PACKAGES	1024
+
+static int total_cores=0,total_packages=0;
+static int package_map[MAX_PACKAGES];
+
+static int detect_packages(void) {
+
+	char filename[BUFSIZ];
+	FILE *fff;
+	int package;
+	int i;
+
+	for(i=0;i<MAX_PACKAGES;i++) package_map[i]=-1;
+
+	printf("\t");
+	for(i=0;i<MAX_CPUS;i++) {
+		sprintf(filename,"/sys/devices/system/cpu/cpu%d/topology/physical_package_id",i);
+		fff=fopen(filename,"r");
+		if (fff==NULL) break;
+		fscanf(fff,"%d",&package);
+		printf("%d (%d)",i,package);
+		if (i%8==7) printf("\n\t"); else printf(", ");
+		fclose(fff);
+
+		if (package_map[package]==-1) {
+			total_packages++;
+			package_map[package]=i;
+		}
+
+	}
+
+	printf("\n");
+
+	total_cores=i;
+
+	printf("\tDetected %d cores in %d packages\n\n",
+		total_cores,total_packages);
+
+	return 0;
 }
 
 
 /*******************************/
 /* MSR code                    */
 /*******************************/
-static int rapl_msr(int core) {
+static int rapl_msr(int core, int cpu_model) {
 
 	int fd;
 	long long result;
@@ -215,9 +261,7 @@ static int rapl_msr(int core) {
 	double pp1_before=0.0,pp1_after;
 	double dram_before=0.0,dram_after;
 	double thermal_spec_power,minimum_power,maximum_power,time_window;
-	int cpu_model;
 
-	cpu_model=detect_cpu();
 	if (cpu_model<0) {
 		printf("Unsupported CPU type\n");
 		return -1;
@@ -619,6 +663,7 @@ int main(int argc, char **argv) {
 	int force_msr=0,force_perf_event=0,force_sysfs=0;
 	int core=0;
 	int result=-1;
+	int cpu_model;
 
 	printf("\n");
 
@@ -654,6 +699,9 @@ int main(int argc, char **argv) {
 
 	(void)force_sysfs;
 
+	cpu_model=detect_cpu();
+	detect_packages();
+
 	if ((!force_msr) && (!force_perf_event)) {
 		result=rapl_sysfs(core);
 	}
@@ -665,7 +713,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (result<0) {
-		result=rapl_msr(core);
+		result=rapl_msr(core,cpu_model);
 	}
 
 	if (result<0) {
