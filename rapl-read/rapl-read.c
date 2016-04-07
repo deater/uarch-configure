@@ -350,7 +350,7 @@ static int rapl_msr(int core, int cpu_model) {
 
 			result=read_msr(fd,MSR_PP1_POLICY);
 			int pp1_policy=(int)result&0x001f;
-			printf("PowerPlane1 (on-core GPU if avail) %d policy: %d\n",
+			printf("\tPowerPlane1 (on-core GPU if avail) %d policy: %d\n",
 				core,pp1_policy);
 		}
 		close(fd);
