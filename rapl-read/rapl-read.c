@@ -255,170 +255,187 @@ static int rapl_msr(int core, int cpu_model) {
 	int fd;
 	long long result;
 	double power_units,time_units;
-	double cpu_energy_units,dram_energy_units;
-	double package_before,package_after;
-	double pp0_before,pp0_after;
-	double pp1_before=0.0,pp1_after;
-	double dram_before=0.0,dram_after;
+	double cpu_energy_units[MAX_PACKAGES],dram_energy_units[MAX_PACKAGES];
+	double package_before[MAX_PACKAGES],package_after[MAX_PACKAGES];
+	double pp0_before[MAX_PACKAGES],pp0_after[MAX_PACKAGES];
+	double pp1_before[MAX_PACKAGES],pp1_after[MAX_PACKAGES];
+	double dram_before[MAX_PACKAGES],dram_after[MAX_PACKAGES];
 	double thermal_spec_power,minimum_power,maximum_power,time_window;
+	int j;
 
 	printf("\nTrying /dev/msr interface to gather results\n\n");
 
 	if (cpu_model<0) {
-		printf("Unsupported CPU type\n");
+		printf("\tUnsupported CPU model %d\n",cpu_model);
 		return -1;
 	}
 
-	printf("Checking core #%d\n",core);
+	for(j=0;j<total_packages;j++) {
+		printf("\tListing paramaters for package #%d\n",j);
 
-	fd=open_msr(core);
+		fd=open_msr(package_map[j]);
 
-	/* Calculate the units used */
-	result=read_msr(fd,MSR_RAPL_POWER_UNIT);
+		/* Calculate the units used */
+		result=read_msr(fd,MSR_RAPL_POWER_UNIT);
 
-	power_units=pow(0.5,(double)(result&0xf));
-	cpu_energy_units=pow(0.5,(double)((result>>8)&0x1f));
-	time_units=pow(0.5,(double)((result>>16)&0xf));
+		power_units=pow(0.5,(double)(result&0xf));
+		cpu_energy_units[j]=pow(0.5,(double)((result>>8)&0x1f));
+		time_units=pow(0.5,(double)((result>>16)&0xf));
 
-	/* On Haswell EP the DRAM units differ from the CPU ones */
-	if (cpu_model==CPU_HASWELL_EP) {
-		dram_energy_units=pow(0.5,(double)16);
+		/* On Haswell EP the DRAM units differ from the CPU ones */
+		if (cpu_model==CPU_HASWELL_EP) {
+			dram_energy_units[j]=pow(0.5,(double)16);
+		}
+		else {
+			dram_energy_units[j]=cpu_energy_units[j];
+		}
+
+		printf("\t\tPower units = %.3fW\n",power_units);
+		printf("\t\tCPU Energy units = %.8fJ\n",cpu_energy_units[j]);
+		printf("\t\tDRAM Energy units = %.8fJ\n",dram_energy_units[j]);
+		printf("\t\tTime units = %.8fs\n",time_units);
+		printf("\n");
+
+		/* Show package power info */
+		result=read_msr(fd,MSR_PKG_POWER_INFO);
+		thermal_spec_power=power_units*(double)(result&0x7fff);
+		printf("\t\tPackage thermal spec: %.3fW\n",thermal_spec_power);
+		minimum_power=power_units*(double)((result>>16)&0x7fff);
+		printf("\t\tPackage minimum power: %.3fW\n",minimum_power);
+		maximum_power=power_units*(double)((result>>32)&0x7fff);
+		printf("\t\tPackage maximum power: %.3fW\n",maximum_power);
+		time_window=time_units*(double)((result>>48)&0x7fff);
+		printf("\t\tPackage maximum time window: %.6fs\n",time_window);
+
+		/* Show package power limit */
+		result=read_msr(fd,MSR_PKG_RAPL_POWER_LIMIT);
+		printf("\t\tPackage power limits are %s\n", (result >> 63) ? "locked" : "unlocked");
+		double pkg_power_limit_1 = power_units*(double)((result>>0)&0x7FFF);
+		double pkg_time_window_1 = time_units*(double)((result>>17)&0x007F);
+		printf("\t\tPackage power limit #1: %.3fW for %.6fs (%s, %s)\n",
+			pkg_power_limit_1, pkg_time_window_1,
+			(result & (1LL<<15)) ? "enabled" : "disabled",
+			(result & (1LL<<16)) ? "clamped" : "not_clamped");
+		double pkg_power_limit_2 = power_units*(double)((result>>32)&0x7FFF);
+		double pkg_time_window_2 = time_units*(double)((result>>49)&0x007F);
+		printf("\t\tPackage power limit #2: %.3fW for %.6fs (%s, %s)\n", 
+			pkg_power_limit_2, pkg_time_window_2,
+			(result & (1LL<<47)) ? "enabled" : "disabled",
+			(result & (1LL<<48)) ? "clamped" : "not_clamped");
+
+		/* only available on *Bridge-EP */
+		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
+			result=read_msr(fd,MSR_PKG_PERF_STATUS);
+			double acc_pkg_throttled_time=(double)result*time_units;
+			printf("\tAccumulated Package Throttled Time : %.6fs\n",
+				acc_pkg_throttled_time);
+		}
+
+		/* only available on *Bridge-EP */
+		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
+			result=read_msr(fd,MSR_PP0_PERF_STATUS);
+			double acc_pp0_throttled_time=(double)result*time_units;
+			printf("\tPowerPlane0 (core) Accumulated Throttled Time "
+				": %.6fs\n",acc_pp0_throttled_time);
+
+			result=read_msr(fd,MSR_PP0_POLICY);
+			int pp0_policy=(int)result&0x001f;
+			printf("\tPowerPlane0 (core) for core %d policy: %d\n",core,pp0_policy);
+
+		}
+
+
+		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+
+			result=read_msr(fd,MSR_PP1_POLICY);
+			int pp1_policy=(int)result&0x001f;
+			printf("PowerPlane1 (on-core GPU if avail) %d policy: %d\n",
+				core,pp1_policy);
+		}
+		close(fd);
+
 	}
-	else {
-		dram_energy_units=cpu_energy_units;
-	}
-
-	printf("Power units = %.3fW\n",power_units);
-	printf("CPU Energy units = %.8fJ\n",cpu_energy_units);
-	printf("DRAM Energy units = %.8fJ\n",dram_energy_units);
-	printf("Time units = %.8fs\n",time_units);
 	printf("\n");
 
-	/* Show package power info */
-	result=read_msr(fd,MSR_PKG_POWER_INFO);
-	thermal_spec_power=power_units*(double)(result&0x7fff);
-	printf("Package thermal spec: %.3fW\n",thermal_spec_power);
-	minimum_power=power_units*(double)((result>>16)&0x7fff);
-	printf("Package minimum power: %.3fW\n",minimum_power);
-	maximum_power=power_units*(double)((result>>32)&0x7fff);
-	printf("Package maximum power: %.3fW\n",maximum_power);
-	time_window=time_units*(double)((result>>48)&0x7fff);
-	printf("Package maximum time window: %.6fs\n",time_window);
+	for(j=0;j<total_packages;j++) {
 
-	/* Show package power limit */
-	result=read_msr(fd,MSR_PKG_RAPL_POWER_LIMIT);
-	printf("Package power limits are %s\n", (result >> 63) ? "locked" : "unlocked");
-	double pkg_power_limit_1 = power_units*(double)((result>>0)&0x7FFF);
-	double pkg_time_window_1 = time_units*(double)((result>>17)&0x007F);
-	printf("Package power limit #1: %.3fW for %.6fs (%s, %s)\n",
-		pkg_power_limit_1, pkg_time_window_1,
-		(result & (1LL<<15)) ? "enabled" : "disabled",
-		(result & (1LL<<16)) ? "clamped" : "not_clamped");
-	double pkg_power_limit_2 = power_units*(double)((result>>32)&0x7FFF);
-	double pkg_time_window_2 = time_units*(double)((result>>49)&0x007F);
-	printf("Package power limit #2: %.3fW for %.6fs (%s, %s)\n", 
-		pkg_power_limit_2, pkg_time_window_2,
-		(result & (1LL<<47)) ? "enabled" : "disabled",
-		(result & (1LL<<48)) ? "clamped" : "not_clamped");
+		fd=open_msr(package_map[j]);
 
-	printf("\n");
+		/* Package Energy */
+		result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
+		package_before[j]=(double)result*cpu_energy_units[j];
 
-	/* result=read_msr(fd,MSR_RAPL_POWER_UNIT); */
+		/* PP0 energy */
+		/* Not available on Haswell-EP? */
+		result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
+		pp0_before[j]=(double)result*cpu_energy_units[j];
 
-	result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
-	package_before=(double)result*cpu_energy_units;
-	printf("Package energy before: %.6fJ\n",package_before);
+		/* PP1 energy */
+		/* not available on *Bridge-EP */
+		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
 
-	/* only available on *Bridge-EP */
-	if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
-		result=read_msr(fd,MSR_PKG_PERF_STATUS);
-		double acc_pkg_throttled_time=(double)result*time_units;
-		printf("Accumulated Package Throttled Time : %.6fs\n",
-			acc_pkg_throttled_time);
+	 		result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
+			pp1_before[j]=(double)result*cpu_energy_units[j];
+		}
+
+
+		/* Updated documentation (but not the Vol3B) says Haswell and	*/
+		/* Broadwell have DRAM support too				*/
+		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
+			(cpu_model==CPU_HASWELL_EP) ||
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+
+			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
+			dram_before[j]=(double)result*dram_energy_units[j];
+		}
+
+		close(fd);
 	}
 
-	result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
-	pp0_before=(double)result*cpu_energy_units;
-	printf("PowerPlane0 (core) for core %d energy before: %.6fJ\n",
-		core,pp0_before);
-
-	result=read_msr(fd,MSR_PP0_POLICY);
-	int pp0_policy=(int)result&0x001f;
-	printf("PowerPlane0 (core) for core %d policy: %d\n",core,pp0_policy);
-
-	/* only available on *Bridge-EP */
-	if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
-		result=read_msr(fd,MSR_PP0_PERF_STATUS);
-		double acc_pp0_throttled_time=(double)result*time_units;
-		printf("PowerPlane0 (core) Accumulated Throttled Time "
-		": %.6fs\n",acc_pp0_throttled_time);
-	}
-
-	/* not available on *Bridge-EP */
-	if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-		(cpu_model==CPU_HASWELL)) {
-
- 		result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
-		pp1_before=(double)result*cpu_energy_units;
-		printf("PowerPlane1 (on-core GPU if avail) before: %.6fJ\n",
-			pp1_before);
-		result=read_msr(fd,MSR_PP1_POLICY);
-		int pp1_policy=(int)result&0x001f;
-		printf("PowerPlane1 (on-core GPU if avail) %d policy: %d\n",
-			core,pp1_policy);
-	}
-
-
-	/* Updated documentation (but not the Vol3B) says Haswell and	*/
-	/* Broadwell have DRAM support too				*/
-	if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
-		(cpu_model==CPU_HASWELL_EP) ||
-		(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
-
-		result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
-		dram_before=(double)result*dram_energy_units;
-		printf("DRAM energy before: %.6fJ\n",dram_before);
-	}
-
-  	printf("\nSleeping 1 second\n\n");
+  	printf("\n\tSleeping 1 second\n\n");
 	sleep(1);
 
-	result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
-	package_after=(double)result*cpu_energy_units;
-	printf("Package energy after: %.6f  (%.6fJ consumed)\n",
-		package_after,package_after-package_before);
+	for(j=0;j<total_packages;j++) {
 
-	result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
-	pp0_after=(double)result*cpu_energy_units;
-	printf("PowerPlane0 (core) for core %d energy after: %.6f  "
-		"(%.6fJ consumed)\n",
-		core,pp0_after,pp0_after-pp0_before);
+		fd=open_msr(package_map[j]);
 
-	/* not available on SandyBridge-EP */
-	if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-		(cpu_model==CPU_HASWELL)) {
-		result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
-		pp1_after=(double)result*cpu_energy_units;
-		printf("PowerPlane1 (on-core GPU if avail) after: %.6f "
-			" (%.6fJ consumed)\n",
-			pp1_after,pp1_after-pp1_before);
+		printf("\tPackage %d:\n",j);
+
+		result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
+		package_after[j]=(double)result*cpu_energy_units[j];
+		printf("\t\tPackage energy: %.6fJ\n",
+			package_after[j]-package_before[j]);
+
+		result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
+		pp0_after[j]=(double)result*cpu_energy_units[j];
+		printf("\t\tPowerPlane0 (cores): %.6fJ\n",
+			pp0_after[j]-pp0_before[j]);
+
+		/* not available on SandyBridge-EP */
+		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
+			pp1_after[j]=(double)result*cpu_energy_units[j];
+			printf("\t\tPowerPlane1 (on-core GPU if avail): %.6f J\n",
+				pp1_after[j]-pp1_before[j]);
+		}
+
+		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
+			(cpu_model==CPU_HASWELL_EP) ||
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+
+			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
+			dram_after[j]=(double)result*dram_energy_units[j];
+			printf("\t\tDRAM: %.6fJ\n",
+				dram_after[j]-dram_before[j]);
+		}
+		close(fd);
 	}
-
-	if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
-		(cpu_model==CPU_HASWELL_EP) ||
-		(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
-
-		result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
-		dram_after=(double)result*dram_energy_units;
-		printf("DRAM energy after: %.6f  (%.6fJ consumed)\n",
-			dram_after,dram_after-dram_before);
-	}
-
 	printf("\n");
 	printf("Note: the energy measurements can overflow in 60s or so\n");
 	printf("      so try to sample the counters more often than that.\n\n");
-
-	close(fd);
 
 	return 0;
 }
