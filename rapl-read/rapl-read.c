@@ -128,6 +128,9 @@ static long long read_msr(int fd, int which) {
 #define CPU_BROADWELL_DE	86
 #define CPU_SKYLAKE		78	// 94 too?
 
+/* TODO: on Skylake, also may support  PSys "platform" domain,	*/
+/* the whole SoC not just the package.				*/
+/* see dcee75b3b7f025cc6765e6c92ba0a4e59a4d25f4			*/
 
 static int detect_cpu(void) {
 
