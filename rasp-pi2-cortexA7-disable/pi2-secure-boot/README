@@ -1,0 +1,42 @@
+This is based on code from here and discussion found here:
+	https://community.arm.com/message/25127
+	http://blog.flexvdi.com/2015/02/25/enabling-hyp-mode-on-the-raspberry-pi-2/
+	www.raspberrypi.org/forums/viewtopic.php?f=72&t=130921
+	www.raspberrypi.org/forums/viewtopic.php?f=72&t=100752
+	https://bitbucket.org/vahidi/mini-pi-bootloader/
+
+From what I understand the code used for reference originally came from
+the uBoot raspberry Pi support by way of Sergio L. Pascual's
+hypervisor support patches.
+	https://github.com/slp/rpi2-hyp-boot.git
+
+In general, on newer arm you can only write fields in config registers
+(like the control register) if you are running in "secure mode".
+
+Most bootloaders tend to put the processor in "non-secure" mode before
+starting Linux.
+
+Some setups support a hypervisor-like interface to allow setting these
+registers anyway (see code for pandaboard).
+
+
+Raspberry Pi
+
+The Pi firmware definitely sets things into secure mode by the bootloader.
+
+You can run code instead of the bootloader by compiling up your own
+simple bootloader and prepending it to the front of the kernel and then
+setting "kernel_old=1" in config.txt.   Code/examples here.
+
+I can't seem to get the kernel to boot into secure mode though.
+If you disable the bits to enable it, the kernel crashes at boot.
+Possibly it needs some registers that are non-secure only?
+
+As a hack you can just modify the bootloader here to turn off the bits
+you don't want!  Disabling caches still seems to not work, but disabling
+things in the AUX control register does.
+
+However, if you boot a kernel with kernel_old=1 like this, then device
+tree doesn't get set up, and then the PMU (performance counters) don't work,
+which sort of defeats the purpose for us.
+
