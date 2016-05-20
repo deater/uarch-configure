@@ -11,13 +11,17 @@ Included:
   intel-prefetch     : disable prefetch on most modern intel processors
   r12k-brpred : set values for MIPS R12000 branch predictors
   rapl-read   : read x86 RAPL power/energy info
+  rasp-pi-brpred: code to disable branch predictor on ARM 1176
   rasp-pi-pmu : tests performance counters on raspberry pi ARM 1176
+  rasp-pi2-cortexA7-disable : disable features on Pi2/CortexA7
   rdpmc-bench : code to text x86 rdpmc overhead
   wattsup     : code to read the wattsup power meter
+
+
 
 TODO:
   rasp-pi-cache : set cache values on raspberry pi ARM 1176 processor
 
 Vince Weaver
 vincent.weaver@maine.edu
-26 February 2016
+20 May 2016

@@ -1,0 +1,17 @@
+This code tries to disable architectural features on the Raspberry Pi 2
+(armv7 Cortex A7).
+
+This is a lot harder than on the original Raspberry Pi, as the
+armv6 1176 chip in the original Pis did not have secure mode ("TrustZone").
+
+On the pi2, the bootloader switches the pi into non-secure mode before
+launching the kernel.  The kernel itself does not care about this, in fact
+it possibly depends on running in nonsecure mode.
+
+It does mean that the various registers that are disabled and/or
+shadowed/mirrored in nonsecure mode are not accessible to us anymore.
+And this includes the various disabling registers.
+
+
+Note that on Cortex-A7 you cannot disable branch prediction if the MMU is
+active.
