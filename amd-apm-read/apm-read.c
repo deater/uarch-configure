@@ -9,6 +9,7 @@
 
 
 #include <stdio.h>
+#include <string.h>
 
 #include <cpuid.h>
 
@@ -16,9 +17,14 @@ int main(int argc, char **argv) {
 
 	unsigned int eax,ebx,ecx,edx=0;
 	unsigned int stepping,model,family;
+	char vendor_string[13];
 
+	/* Get CPUID leaf 0 which has name and level */
 	__get_cpuid (0x0,&eax,&ebx,&ecx,&edx);
-	printf("%x %x %x\n",ebx,ecx,edx);
+	memcpy(vendor_string,&ebx,4);
+	memcpy(vendor_string+4,&edx,4);
+	memcpy(vendor_string+8,&ecx,4);
+	vendor_string[12]=0;
 
 	__get_cpuid (0x1,&eax,&ebx,&ecx,&edx);
 	stepping=eax&0xf;
@@ -32,10 +38,16 @@ int main(int argc, char **argv) {
 		model+=(((eax>>16)&0xf)<<4);
 	}
 
+	printf("Looking for AMD APM support...\n");
 
+	printf("\tFound family %d model %d stepping %d %s processor\n",
+		family,model,stepping,vendor_string);
 
-	printf("stepping=%d model=%d family=%d\n",
-		stepping,model,family);
+	if (strcmp("AuthenticAMD",vendor_string)) {
+		printf("Not an AMD processor!  Exiting.\n\n");
+
+		return 0;
+	}
 
 
 
