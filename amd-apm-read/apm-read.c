@@ -49,13 +49,22 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
+	if (family<0x15) {
+		printf("Family %x processor too old (need at least 0x15)\n\n",
+			family);
 
+		return 0;
+	}
 
 	/* 2.5.9.1 */
 	/* Support for APM is specified by CPUID Fn8000_0007_EDX[CPB]. */
+	/* which is bit 9, CPU "core performance boost" */
 	__get_cpuid (0x80000007,&eax,&ebx,&ecx,&edx);
-	printf("edx=%x\n",edx);
 
+	if (!(edx&(1<<9))) {
+		printf("Bit 9 (CDP) not set in cpuid 80000007:edx, no APM support\n\n");
+		return 0;
+	}
 
 	/* the drivers/hwmon/fam15h_power.c tweaks the value in */
 	/* 00:18.5 Host bridge: Advanced Micro Devices, Inc. [AMD] Family 15h Processor Function 5 */
