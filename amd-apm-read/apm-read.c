@@ -39,12 +39,9 @@ int main(int argc, char **argv) {
 	model=(eax>>4)&0xf;
 	family=(eax>>8)&0xf;
 
-	if (family==15) {
-		family+=((eax>>20)&0xff);
-	}
-	if ((family==15) || (family==6)) {
-		model+=(((eax>>16)&0xf)<<4);
-	}
+	/* All newer procs?? */
+	family+=((eax>>20)&0xff);
+	model+=(((eax>>16)&0xf)<<4);
 
 	printf("Looking for AMD APM support...\n");
 
