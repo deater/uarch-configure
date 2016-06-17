@@ -75,6 +75,8 @@ static unsigned long long rdtsc(void) {
 #endif
 
 
+static long long N,Tx,Ty,JMax,Jx,Jy,Jdelta,Tdelta;
+static int msr_fd,tsc_size;
 
 /****************************************************/
 /* ApmPwrReporting: APM accumulated power reporting */
@@ -86,16 +88,11 @@ static unsigned long long rdtsc(void) {
 /*     BKDG for AMD Family 16h Models 30h-3Fh Processors */
 /* For algorithm, see 17.5 in a 2016 edition of the */
 /*     AMD64 Architecture Programmer's Manual, Volume 2 */
-int test_apm_pwr_reporting(void) {
+int init_apm_pwr_reporting(int family) {
 
 	unsigned int eax,ebx,ecx,edx=0;
-	int fd,tsc_size;
-	long long PwrCPUave,N,Tx,Ty,JMax,Jx,Jy,Jdelta,Tdelta;
-	double tsc_overflow;
 
-	printf("\n###############################\n");
-	printf("Testing APM Accumulerated Power\n");
-	printf("###############################\n\n");
+	double tsc_overflow;
 
 	/* Support is noted in cpuid 80000007:edx bit 12    */
 	__get_cpuid (0x80000007,&eax,&ebx,&ecx,&edx);
@@ -114,8 +111,7 @@ int test_apm_pwr_reporting(void) {
 	/* (CpuPwrSampleTimeRatio) by executing CPUID Fn8000_0007. */
 	/* Call this value N. */
 	N=ecx;
-	printf("N=%lld\n",N);
-
+	printf("N=%lld %d\n",N,ecx);
 
 	/* Check for perf_tsc */
 	/* Support is noted in cpuid 80000001:ecx bit 27    */
@@ -146,15 +142,19 @@ int test_apm_pwr_reporting(void) {
 	/* Jmax = value returned from RDMSR MaxCpuSwPwrAcc.	*/
 	/* MSRC001_007B Max Compute Unit Power Accumulator */
 
-	fd=open_msr(0);
-	if (fd<0) {
+	msr_fd=open_msr(0);
+	if (msr_fd<0) {
 		return -1;
 	}
 
-	JMax=read_msr(fd,0xc001007bULL);
-	printf("JMax=%lld\n",JMax);
+	JMax=read_msr(msr_fd,0xc001007bULL);
+	printf("JMax=%llx (%lld)\n",JMax,JMax);
 
-	printf("\nMeasuring power while sleeping 5ms\n");
+	return 0;
+}
+
+
+int start_apm_pwr_reporting(void) {
 
 	/*At time x, read CpuSwPwrAcc and the TSC */
 	/* J_x = value returned by RDMSR CpuSwPwrAcc	*/
@@ -162,32 +162,22 @@ int test_apm_pwr_reporting(void) {
 	/* MSRC001_007A Compute Unit Power Accumulator */
 	/* Note: Linux driver uses PTSC rather than RDTSC */
 	/* MSRC001_0280 */
-	Jx=read_msr(fd,0xc001007aULL);
+	Jx=read_msr(msr_fd,0xc001007aULL);
 //	Tx=rdtsc();
-	Tx=read_msr(fd,0xc0010280ULL);
+	Tx=read_msr(msr_fd,0xc0010280ULL);
 
+	return 0;
+}
 
+int stop_apm_pwr_reporting(int family) {
 
-	/* sleep for 5ms */
-//	usleep(5000);
-
-#if 1
-	{ int i; double a=0.0;
-	for(i=0;i<20000000;i++) {
-		a+=drand48();
-		a-=drand48();
-		a=a*a;
-
-	}
-	printf("%lf\n",a);
-	}
-#endif
+	long long PwrCPUave;
 
 	/* At time y, read CpuSwPwrAcc and the TSC again	*/
 	/* J_y = value returned by RDMSR CpuSwPwrAcc		*/
 	/* T_y = value returned by RDTSC			*/
-	Jy=read_msr(fd,0xc001007aULL);
-	Ty=read_msr(fd,0xc0010280ULL);
+	Jy=read_msr(msr_fd,0xc001007aULL);
+	Ty=read_msr(msr_fd,0xc0010280ULL);
 	//Ty=rdtsc();
 
 	/* Calculate the average power consumption for the processor	*/
@@ -198,6 +188,7 @@ int test_apm_pwr_reporting(void) {
 	/* PwrCPUave = N * Jdelta / (T y - T x ) */
 
 	if (Jy<Jx) {
+		printf("Power overflow!\n");
 		Jdelta=(Jy+JMax)-Jx;
 	}
 	else {
@@ -205,7 +196,14 @@ int test_apm_pwr_reporting(void) {
 	}
 
 	if (Ty<Tx) {
-		Tdelta=(Ty+(1ULL<<tsc_size))-Tx;
+		printf("Bug!  PTSC should not overflow!\n");
+		if (family==0x16) {
+			printf("On fam16h seems to be only 24 bits???\n");
+			Tdelta=(Ty+(1ULL<<24))-Tx;
+		}
+		else {
+			Tdelta=(Ty+(1ULL<<tsc_size))-Tx;
+		}
 	}
 	else {
 		Tdelta=(Ty-Tx);
@@ -221,6 +219,43 @@ int test_apm_pwr_reporting(void) {
 	return 0;
 }
 
+int test_apm_pwr_reporting(int family) {
+
+	int result;
+
+	printf("\n###############################\n");
+	printf("Testing APM Accumulerated Power\n");
+	printf("###############################\n\n");
+
+	result=init_apm_pwr_reporting(family);
+	if (result<0) return result;
+
+	printf("\n\nMeasuring power while sleeping 5ms\n");
+
+	start_apm_pwr_reporting();
+	usleep(5000);
+	stop_apm_pwr_reporting(family);
+
+	printf("\n\nMeasuring power while calculating:\n");
+
+	start_apm_pwr_reporting();
+
+	{ int i; double a=0.0;
+	for(i=0;i<20000000;i++) {
+		a+=drand48();
+		a-=drand48();
+		a=a*a;
+
+	}
+	printf("%lf\n",a);
+	}
+
+	stop_apm_pwr_reporting(family);
+
+	return 0;
+
+}
+
 
 int test_tdp_reporting(int is_excavator) {
 
@@ -229,6 +264,10 @@ int test_tdp_reporting(int is_excavator) {
 	int tdp_limit,tdp_limit3,tdp_to_watts;
 	unsigned int processor_tdp,base_tdp,tdp;
 	int fd,result;
+
+	printf("\n###############################\n");
+	printf("Testing TDP Reporting\n");
+	printf("###############################\n\n");
 
 	/* 2.5.9.1 */
 	/* Support for APM is specified by CPUID Fn8000_0007_EDX[CPB]. */
@@ -364,6 +403,48 @@ int test_tdp_reporting(int is_excavator) {
 	return 0;
 }
 
+#define MAX_CPUS	1024
+#define MAX_PACKAGES	16
+
+static int total_cores=0,total_packages=0;
+static int package_map[MAX_PACKAGES];
+
+static int detect_packages(void) {
+
+	char filename[BUFSIZ];
+	FILE *fff;
+	int package;
+	int i;
+
+	for(i=0;i<MAX_PACKAGES;i++) package_map[i]=-1;
+
+	printf("\t");
+	for(i=0;i<MAX_CPUS;i++) {
+		sprintf(filename,"/sys/devices/system/cpu/cpu%d/topology/physical_package_id",i);
+		fff=fopen(filename,"r");
+		if (fff==NULL) break;
+		fscanf(fff,"%d",&package);
+		printf("%d (%d)",i,package);
+		if (i%8==7) printf("\n\t"); else printf(", ");
+		fclose(fff);
+
+		if (package_map[package]==-1) {
+			total_packages++;
+			package_map[package]=i;
+		}
+
+	}
+
+	printf("\n");
+
+	total_cores=i;
+
+	printf("\tDetected %d cores in %d packages\n\n",
+		total_cores,total_packages);
+
+	return 0;
+}
+
 
 int main(int argc, char **argv) {
 
@@ -408,9 +489,14 @@ int main(int argc, char **argv) {
 
 	if ((family==0x15) && (model>=0x60)) is_excavator=1;
 
+
+
+	detect_packages();
+
+
 	test_tdp_reporting(is_excavator);
 
-	test_apm_pwr_reporting();
+	test_apm_pwr_reporting(family);
 
 	return 0;
 
