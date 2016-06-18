@@ -1,0 +1,6 @@
+This is code for reading from the Measurement Computing 1608FS-PLUS
+DAQ device.
+
+You'll need to install libusb, on recent Debian this is a matter of
+	apt-get install libusb-1.0.0-dev
+
