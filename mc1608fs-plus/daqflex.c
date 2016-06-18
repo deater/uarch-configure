@@ -111,23 +111,6 @@ int dataBuffer_init(struct dataBuffer_t *db, int points) {
 	return 0;
 }
 
-
-
-//Workaround for not having a kbhit
-int kbhit(void) {
-	struct timeval tv;
-	fd_set rdfs;
-
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-
-	FD_ZERO(&rdfs);
-	FD_SET (STDIN_FILENO, &rdfs);
-
-	select(STDIN_FILENO+1, &rdfs, NULL, NULL, &tv);
-	return FD_ISSET(STDIN_FILENO, &rdfs);
-}
-
 static void print_help(char *exe_name, int version_only) {
 
 	printf("Daqflex version 0.1\n\n");
@@ -162,12 +145,7 @@ int main(int argc, char **argv) {
 	char out_message[64];
 	int device_type;
 
-	/* Set paramaters */
-
-
-	/* numSamples * numChans must be an		*/
-	/* integer multiple of 32 for a continuous scan */
-	int numSamples = 3200;
+	int numSamples;
 	/* Half of the buffer will be handled at a time. */
 	int lastHalfRead = SECONDHALF;
 	double delay;
@@ -204,8 +182,14 @@ int main(int argc, char **argv) {
 
 	}
 
-
+	/* numSamples * numChans must be an		*/
+	/* integer multiple of 32 for a continuous scan */
+	numSamples = 3200;
+//	numSamples = numChans*rate*2;
+//	if (numSamples<32) numSamples=32;
+//	else numSamples&=~0x1f;
 	delay = (numSamples*100000)/(numChans*rate*2);
+	printf("Using samples: %d delay %lf\n",numSamples,delay);
 
 	if (!strcmp(filename,"-")) {
 		output=stdout;
@@ -245,6 +229,7 @@ int main(int argc, char **argv) {
 
 	/* Flush out any old data from the buffer */
 	flushInputData(&device);
+	sendMessage(&device,"AISCAN:STOP",out_message);
 
 
 	/* Query the device a bit */
