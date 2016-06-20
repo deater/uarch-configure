@@ -75,13 +75,13 @@ float scaleAndCalibrateData(unsigned short data,
 
 
 void displayAndWriteData(unsigned short* data, int transferred,
-			int numChans, int maxCounts, FILE* output) {
+			int num_channels, int maxCounts, FILE* output) {
 
 	int currentChan, currentData=0;
 	float fixedData;
 
 	while (currentData < transferred) {
-		for(currentChan=0; currentChan < numChans; currentChan++) {
+		for(currentChan=0; currentChan < num_channels; currentChan++) {
 			/* Scale the data */
 			fixedData = scaleAndCalibrateData(data[currentData],
 					minVoltage, maxVoltage,
@@ -94,20 +94,6 @@ void displayAndWriteData(unsigned short* data, int transferred,
 		}
 		fprintf(output,"\n");
 	}
-}
-
-
-int dataBuffer_init(struct dataBuffer_t *db, int points) {
-
-	if (points % 32) {
-		return MCC_ERR_INVALID_BUFFER_SIZE;
-	}
-
-	db->data=calloc(points,sizeof(unsigned short));
-	db->numPoints = points;
-	db->currIndex=0;
-
-	return 0;
 }
 
 static void print_help(char *exe_name, int version_only) {
@@ -135,7 +121,7 @@ int main(int argc, char **argv) {
 
 	unsigned int lowChan = 0;
 	unsigned int highChan = 3;
-	unsigned int numChans = highChan-lowChan+1;
+	unsigned int num_channels = highChan-lowChan+1;
 	int rate = 2048;
 	int counter = 0;
 	FILE *output;
@@ -144,14 +130,14 @@ int main(int argc, char **argv) {
 	char out_message[64];
 	int device_type;
 
-	int numSamples;
+	int sample_times;
 	/* Half of the buffer will be handled at a time. */
 	int lastHalfRead = SECONDHALF;
 	unsigned int delay;
 	struct dataBuffer_t buffer;
 	char temp_message[BUFSIZ];
 	char filename[BUFSIZ];
-	int c;
+	int c,buffer_size;
 	struct sigaction sa;
 
 	/* hardcoded, should set from a command line arg */
@@ -181,14 +167,23 @@ int main(int argc, char **argv) {
 
 	}
 
-	/* numSamples * numChans must be an		*/
-	/* integer multiple of 32 for a continuous scan */
-	numSamples = 32;
-//	numSamples = numChans*rate*2;
-//	if (numSamples<32) numSamples=32;
-//	else numSamples&=~0x1f;
-	delay = (numSamples*100000)/(numChans*rate*2);
-	printf("Using samples: %d delay %dus\n",numSamples,delay);
+	/* For continuous scan				*/
+	/* Minimum USB transfer for this device is 64B	*/
+	/* Samples are 16-bits (2 Bytes)		*/
+	/* So sample buffer must be multiple of 64B	*/
+
+	/* Allocate space for 1s of samples at least */
+	buffer_size=(rate)*(num_channels)*2;
+	if (buffer_size<64) {
+		buffer_size=64;
+	}
+	/* Round to a multiple of 64 */
+	buffer_size=((buffer_size+63)/64)*64;
+
+	sample_times=(buffer_size/num_channels)/2;
+	delay = (sample_times*100000)/(num_channels*rate*2);
+
+	printf("Using samples: %d delay %dus\n",sample_times,delay);
 
 	if (!strcmp(filename,"-")) {
 		output=stdout;
@@ -224,7 +219,16 @@ int main(int argc, char **argv) {
 	}
 
 	/* create a buffer for the scan data */
-	dataBuffer_init(&buffer,numSamples*numChans);
+	buffer.data=calloc(buffer_size,1);
+	if (buffer.data==NULL) {
+		fprintf(stderr,"Error allocating buffer\n");
+		return -1;
+	}
+
+	buffer.numPoints = (sample_times*num_channels);
+	buffer.currIndex=0;
+
+
 
 	/* Flush out any old data from the buffer */
 	flushInputData(&device);
@@ -314,7 +318,7 @@ int main(int argc, char **argv) {
 			// printf("First Half Ready\n");
 			displayAndWriteData(buffer.data,
 						buffer.numPoints/2,
-						numChans,
+						num_channels,
 						device.maxCounts,output);
 			lastHalfRead = FIRSTHALF;
 			counter++;
@@ -324,7 +328,7 @@ int main(int argc, char **argv) {
 			//printf("Second Half Ready\n");
 			displayAndWriteData(&buffer.data[buffer.numPoints/2],
 						buffer.numPoints/2,
-						numChans,
+						num_channels,
 						device.maxCounts,output);
 			lastHalfRead = SECONDHALF;
 			counter++;
