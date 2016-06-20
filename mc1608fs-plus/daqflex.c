@@ -75,7 +75,8 @@ float scaleAndCalibrateData(unsigned short data,
 
 
 void displayAndWriteData(unsigned short* data, int transferred,
-			int num_channels, int maxCounts, FILE* output) {
+			int num_channels, int maxCounts, FILE* output,
+			int binary_output) {
 
 	int currentChan, currentData=0;
 	float fixedData;
@@ -88,11 +89,17 @@ void displayAndWriteData(unsigned short* data, int transferred,
 					calSlope[currentChan],
 					calOffset[currentChan],
 					maxCounts);
-			/* Output all data to a csv file */
-			fprintf(output,"%lf,",fixedData);
+			if (binary_output) {
+				fwrite(&fixedData,sizeof(float),1,output);
+			}
+			else {
+				/* Output all data to a csv file */
+				fprintf(output,"%lf,",fixedData);
+			}
+
 			currentData++;
 		}
-		fprintf(output,"\n");
+		if (!binary_output) fprintf(output,"\n");
 	}
 }
 
@@ -101,6 +108,7 @@ static void print_help(char *exe_name, int version_only) {
 	printf("Daqflex version 0.1\n\n");
 	if (!version_only) {
 		printf("Usage:\t%s -h -v\n",exe_name);
+		printf("\t-b\t: generate binary output file\n");
 		printf("\t-h\t: this help message\n");
 		printf("\t-o name\t: output filename (- for stdout)\n");
 		printf("\t-r rate\t: rate to sample\n");
@@ -139,6 +147,7 @@ int main(int argc, char **argv) {
 	char filename[BUFSIZ];
 	int c,buffer_size;
 	struct sigaction sa;
+	int binary_output=0;
 
 	/* hardcoded, should set from a command line arg */
 	device_type=USB_1208_FS_PLUS;
@@ -146,8 +155,11 @@ int main(int argc, char **argv) {
 
 	/* Check command-line args */
 	opterr=0;
-	while ((c = getopt(argc,argv,"hr:o:v")) != -1) {
+	while ((c = getopt(argc,argv,"bhr:o:v")) != -1) {
 		switch(c) {
+			case 'b':
+				binary_output=1;
+				break;
 			case 'h':
 				print_help(argv[0],0);
 				break;
@@ -302,6 +314,21 @@ int main(int argc, char **argv) {
 		buffer.numPoints/2, delay);
 
 	printf("Start time %ld\n",time(NULL));
+	if (binary_output) {
+		int temp_value=0;
+
+		/* version */
+		fwrite(&temp_value,sizeof(int),1,output);
+
+		/* time */
+		temp_value=time(NULL);
+		fwrite(&temp_value,sizeof(int),1,output);
+
+		/* rate */
+		temp_value=rate;
+		fwrite(&temp_value,sizeof(int),1,output);
+	}
+
 	printf("Press ^C to exit\n");
 
 
@@ -319,7 +346,9 @@ int main(int argc, char **argv) {
 			displayAndWriteData(buffer.data,
 						buffer.numPoints/2,
 						num_channels,
-						device.maxCounts,output);
+						device.maxCounts,
+						output,
+						binary_output);
 			lastHalfRead = FIRSTHALF;
 			counter++;
 		}
@@ -329,7 +358,9 @@ int main(int argc, char **argv) {
 			displayAndWriteData(&buffer.data[buffer.numPoints/2],
 						buffer.numPoints/2,
 						num_channels,
-						device.maxCounts,output);
+						device.maxCounts,
+						output,
+						binary_output);
 			lastHalfRead = SECONDHALF;
 			counter++;
 		}
