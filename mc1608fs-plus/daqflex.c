@@ -106,7 +106,6 @@ int dataBuffer_init(struct dataBuffer_t *db, int points) {
 	db->data=calloc(points,sizeof(unsigned short));
 	db->numPoints = points;
 	db->currIndex=0;
-	db->currCount=0;
 
 	return 0;
 }
@@ -148,7 +147,7 @@ int main(int argc, char **argv) {
 	int numSamples;
 	/* Half of the buffer will be handled at a time. */
 	int lastHalfRead = SECONDHALF;
-	double delay;
+	unsigned int delay;
 	struct dataBuffer_t buffer;
 	char temp_message[BUFSIZ];
 	char filename[BUFSIZ];
@@ -184,12 +183,12 @@ int main(int argc, char **argv) {
 
 	/* numSamples * numChans must be an		*/
 	/* integer multiple of 32 for a continuous scan */
-	numSamples = 3200;
+	numSamples = 32;
 //	numSamples = numChans*rate*2;
 //	if (numSamples<32) numSamples=32;
 //	else numSamples&=~0x1f;
 	delay = (numSamples*100000)/(numChans*rate*2);
-	printf("Using samples: %d delay %lf\n",numSamples,delay);
+	printf("Using samples: %d delay %dus\n",numSamples,delay);
 
 	if (!strcmp(filename,"-")) {
 		output=stdout;
@@ -229,6 +228,9 @@ int main(int argc, char **argv) {
 
 	/* Flush out any old data from the buffer */
 	flushInputData(&device);
+
+	/* Stop scanning, in case we crashed or otherwise	*/
+	/* Were still scanning from a previous run		*/
 	sendMessage(&device,"AISCAN:STOP",out_message);
 
 
@@ -292,7 +294,7 @@ int main(int argc, char **argv) {
 
 	/* Start collecting data in the background */
 	/* Data buffer info will be stored in the buffer object */
-	startContinuousTransfer(&device, rate, &buffer,
+	startContinuousTransfer(&device, &buffer,
 		buffer.numPoints/2, delay);
 
 	printf("Start time %ld\n",time(NULL));

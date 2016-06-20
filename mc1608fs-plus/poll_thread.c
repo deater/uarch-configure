@@ -8,7 +8,7 @@
 #include "mccdevice.h"
 #include "poll_thread.h"
 
-int thread_alive=1,ret=0;
+int thread_alive=1;
 pthread_t our_thread;
 
 struct usb_stuff_t {
@@ -18,6 +18,9 @@ struct usb_stuff_t {
 	int numSamples;
 	int delay;
 };
+
+static struct usb_stuff_t usb;
+
 
 static void *read_usb(void *arg) {
 
@@ -33,14 +36,14 @@ static void *read_usb(void *arg) {
 
 	while (thread_alive) {
 		usleep(args->delay);
-		err =  libusb_bulk_transfer(args->dev_handle,
-						args->endpoint_in,
-						&dataAsByte[args->buffer->currIndex*2],
-						args->numSamples,
-						&transferred,
-						timeout);
+		err =  libusb_bulk_transfer(
+					args->dev_handle,
+					args->endpoint_in,
+					&dataAsByte[args->buffer->currIndex*2],
+					args->numSamples,
+					&transferred,
+					timeout);
 	        args->buffer->currIndex += (transferred/2);
-        	args->buffer->currCount += (transferred/2);
 
 		/* a timeout may indicate that some data was transferred, but not all */
 		if (err == LIBUSB_ERROR_TIMEOUT && transferred > 0) {
@@ -55,15 +58,12 @@ static void *read_usb(void *arg) {
 			args->buffer->currIndex = 0;
 		}
 	}
-	ret = 1;
 
 	return NULL;
 }
 
-static struct usb_stuff_t usb;
 
 int startContinuousTransfer(struct MCCDevice_t *dev,
-				unsigned int rate,
 				struct dataBuffer_t *buffer,
                         	int samps, double delay) {
 
@@ -87,5 +87,3 @@ void stopContinuousTransfer(void) {
 
 	pthread_join(our_thread,NULL);
 }
-
-
