@@ -47,7 +47,7 @@ void fillCalConstants(struct MCCDevice_t *dev,
 		sendMessage(dev,offset_string,response);
 		calOffset[currentChan] = atof(response+13);
 
-		fprintf(stderr,"Channel %d Calibration Slope: %lf Offset: %lf\n\n",
+		fprintf(stderr,"Channel %d Calibration Slope: %lf Offset: %lf\n",
 			currentChan,calSlope[currentChan],
 			calOffset[currentChan]);
     }

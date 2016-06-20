@@ -267,7 +267,7 @@ static int sendControlTransfer(struct MCCDevice_t *dev, char *message) {
 	unsigned char data[MAX_MESSAGE_LENGTH];
 	int i;
 
-	printf("Sending: %s\n",message);
+	fprintf(stderr,"Sending: %s /",message);
 
 	length = strlen(message);
 	for (i = 0; i < MAX_MESSAGE_LENGTH; i++) {
@@ -300,7 +300,7 @@ static char *getControlTransfer(struct MCCDevice_t *dev, char *message) {
 		fprintf(stderr,"Error receiving\n");
 		return NULL;
 	}
-	fprintf(stderr,"Got: %s\n\n",message);
+	fprintf(stderr,"Got: %s\n",message);
 
 	return message;
 }
