@@ -9,6 +9,8 @@
 #include <string.h>
 #include <signal.h>
 
+#include <sys/time.h>
+
 #include <libusb.h>
 
 #include "databuffer.h"
@@ -148,6 +150,8 @@ int main(int argc, char **argv) {
 	int c,buffer_size;
 	struct sigaction sa;
 	int binary_output=0;
+	int points;
+	struct timeval tv;
 
 	/* hardcoded, should set from a command line arg */
 	device_type=USB_1208_FS_PLUS;
@@ -184,18 +188,26 @@ int main(int argc, char **argv) {
 	/* Samples are 16-bits (2 Bytes)		*/
 	/* So sample buffer must be multiple of 64B	*/
 
-	/* Allocate space for 1s of samples at least */
-	buffer_size=(rate)*(num_channels)*2;
-	if (buffer_size<64) {
-		buffer_size=64;
+	points=num_channels*rate;
+	if (points<128) {
+		points=128;
 	}
-	/* Round to a multiple of 64 */
-	buffer_size=((buffer_size+63)/64)*64;
+	points=((points+127)/128)*128;
+
+	/* Allocate space for roughly 1s of samples at least */
+
+	/* 2 bytes per point, and then double buffer */
+	buffer_size=points*2*2;
+
+	if (buffer_size%64!=0) {
+		fprintf(stderr,"ERROR!  Bad buffer size!\n");
+	}
 
 	sample_times=(buffer_size/num_channels)/2;
 	delay = (sample_times*100000)/(num_channels*rate*2);
 
-	printf("Using samples: %d delay %dus\n",sample_times,delay);
+	printf("Buffer Size=%d, Sample Times: %d, Num Points: %d, delay %dus\n",
+		buffer_size,sample_times,points,delay);
 
 	if (!strcmp(filename,"-")) {
 		output=stdout;
@@ -237,7 +249,7 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	buffer.numPoints = (sample_times*num_channels);
+	buffer.numPoints = points;
 	buffer.currIndex=0;
 
 
@@ -314,19 +326,30 @@ int main(int argc, char **argv) {
 		buffer.numPoints/2, delay);
 
 	printf("Start time %ld\n",time(NULL));
+
 	if (binary_output) {
 		int temp_value=0;
+		long long temp64=0;
 
 		/* version */
 		fwrite(&temp_value,sizeof(int),1,output);
 
 		/* time */
-		temp_value=time(NULL);
-		fwrite(&temp_value,sizeof(int),1,output);
+		gettimeofday(&tv,NULL);
+		temp64=tv.tv_sec;
+		fwrite(&temp64,sizeof(long long),1,output);
+
+		temp64=tv.tv_usec;
+		fwrite(&temp64,sizeof(long long),1,output);
 
 		/* rate */
 		temp_value=rate;
 		fwrite(&temp_value,sizeof(int),1,output);
+
+		/* num channels */
+		temp_value=num_channels;
+		fwrite(&temp_value,sizeof(int),1,output);
+
 	}
 
 	printf("Press ^C to exit\n");
@@ -376,6 +399,22 @@ int main(int argc, char **argv) {
 
 	/* check status for debugging purposes */
 	sendMessage(&device,"?AISCAN:STATUS",out_message);
+
+	if (binary_output) {
+		long long temp64;
+		float temp_float=1.0/0.0;
+
+		fwrite(&temp_float,sizeof(float),1,output);
+
+		/* time */
+		gettimeofday(&tv,NULL);
+		temp64=tv.tv_sec;
+		fwrite(&temp64,sizeof(long long),1,output);
+
+		temp64=tv.tv_usec;
+		fwrite(&temp64,sizeof(long long),1,output);
+	}
+
 
 	/* close the output file */
 	if (output!=stdout) fclose(output);

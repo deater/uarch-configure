@@ -34,7 +34,7 @@ static void *read_usb(void *arg) {
 
 	args->buffer->currIndex = 0;
 
-	while (thread_alive) {
+	while (1) {
 		usleep(args->delay);
 		err =  libusb_bulk_transfer(
 					args->dev_handle,
@@ -45,8 +45,14 @@ static void *read_usb(void *arg) {
 					timeout);
 	        args->buffer->currIndex += (transferred/2);
 
+		if (transferred>args->numSamples) {
+			fprintf(stderr,"ERROR! Asked for %d, transferred %d\n",
+					args->numSamples, transferred);
+		}
+
 		/* a timeout may indicate that some data was transferred, but not all */
 		if (err == LIBUSB_ERROR_TIMEOUT && transferred > 0) {
+			fprintf(stderr,"TIMEOUT: transferred %d\n",transferred);
 			err = 0;
 		}
 
@@ -55,8 +61,14 @@ static void *read_usb(void *arg) {
 		}
 
 		if (args->buffer->currIndex >= (args->buffer->numPoints)) {
-			args->buffer->currIndex = 0;
+//			fprintf(stderr,"Wrapping currindex: %d\n",args->buffer->currIndex);
+			args->buffer->currIndex -= args->buffer->numPoints;
+
+			if (args->buffer->currIndex != 0) {
+				fprintf(stderr,"Wrapping error!\n");
+			}
 		}
+		if (!thread_alive) break;
 	}
 
 	return NULL;
@@ -84,6 +96,8 @@ int startContinuousTransfer(struct MCCDevice_t *dev,
 void stopContinuousTransfer(void) {
 
 	thread_alive = 0;
+
+	printf("Waiting to finish...\n");
 
 	pthread_join(our_thread,NULL);
 }
