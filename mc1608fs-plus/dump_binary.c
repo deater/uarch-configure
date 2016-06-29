@@ -7,7 +7,7 @@ int main(int argc, char **argv) {
 
 	int i,result,done=0;
 	int fd,temp_int,rate,channels;
-	float points[4];
+	float points[8];
 	int ticks=0;
 	long long temp64;
 

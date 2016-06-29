@@ -29,13 +29,13 @@ int maxVoltage;
 /* to be updated by running this function again.		*/
 
 void fillCalConstants(struct MCCDevice_t *dev,
-	unsigned int lowChan, unsigned int highChan) {
+	unsigned int low_channel, unsigned int high_channel) {
 
 	unsigned int currentChan;
 	char slope_string[BUFSIZ],offset_string[BUFSIZ];
 	char response[64];
 
-	for(currentChan=lowChan; currentChan <= highChan; currentChan++){
+	for(currentChan=low_channel; currentChan <= high_channel; currentChan++){
 
         	/* Set up messages */
 		sprintf(slope_string,"?AI{%d}:SLOPE",currentChan);
@@ -111,9 +111,12 @@ static void print_help(char *exe_name, int version_only) {
 	if (!version_only) {
 		printf("Usage:\t%s -h -v\n",exe_name);
 		printf("\t-b\t: generate binary output file\n");
+		printf("\t-c num\t: number of channels (default 4)\n");
+		printf("\t-d\t: use differential mode (default)\n");
 		printf("\t-h\t: this help message\n");
 		printf("\t-o name\t: output filename (- for stdout)\n");
-		printf("\t-r rate\t: rate to sample\n");
+		printf("\t-r rate\t: rate to sample (default 1000)\n");
+		printf("\t-s\t: use single-ended mode\n");
 		printf("\t-v\t: version info\n");
 	}
 	exit(0);
@@ -126,19 +129,22 @@ static void ctrlc_handler(int sig, siginfo_t *foo, void *bar) {
         done=1;
 }
 
+#define MODE_DIFFERENTIAL 0
+#define MODE_SINGLE_ENDED 1
 
 int main(int argc, char **argv) {
 
-	unsigned int lowChan = 0;
-	unsigned int highChan = 3;
-	unsigned int num_channels = highChan-lowChan+1;
-	int rate = 2048;
+	unsigned int low_channel = 0;
+	unsigned int high_channel = 3;
+	unsigned int num_channels;
+	int rate = 1000;
 	int counter = 0;
 	FILE *output;
 	struct MCCDevice_t device;
 	int result;
 	char out_message[64];
 	int device_type;
+	int mode=MODE_DIFFERENTIAL;
 
 	int sample_times;
 	/* Half of the buffer will be handled at a time. */
@@ -159,10 +165,16 @@ int main(int argc, char **argv) {
 
 	/* Check command-line args */
 	opterr=0;
-	while ((c = getopt(argc,argv,"bhr:o:v")) != -1) {
+	while ((c = getopt(argc,argv,"bc:dhr:o:sv")) != -1) {
 		switch(c) {
 			case 'b':
 				binary_output=1;
+				break;
+			case 'c':
+				high_channel=(atoi(optarg))-1;
+				break;
+			case 'd':
+				mode=MODE_DIFFERENTIAL;
 				break;
 			case 'h':
 				print_help(argv[0],0);
@@ -172,6 +184,9 @@ int main(int argc, char **argv) {
 				break;
 			case 'r':
 				rate=atoi(optarg);
+				break;
+			case 's':
+				mode=MODE_SINGLE_ENDED;
 				break;
 			case 'v':
 				print_help(argv[0],1);
@@ -187,6 +202,9 @@ int main(int argc, char **argv) {
 	/* Minimum USB transfer for this device is 64B	*/
 	/* Samples are 16-bits (2 Bytes)		*/
 	/* So sample buffer must be multiple of 64B	*/
+
+	low_channel=0;
+	num_channels = high_channel-low_channel+1;
 
 	points=num_channels*rate;
 	if (points<128) {
@@ -279,7 +297,13 @@ int main(int argc, char **argv) {
 
 	/* Set absolute or differential modde */
 	/* AI:CHMODE= DIFF or SE. (differential or single-ended)*/
-	//sendMessage(device,"AI:CHMODE=DIFF");
+
+	if (mode==MODE_SINGLE_ENDED) {
+		sendMessage(&device,"AI:CHMODE=SE",out_message);
+	}
+	else {
+		sendMessage(&device,"AI:CHMODE=DIFF",out_message);
+	}
 
 	/* Set the voltage range on the device */
 	/* AISCAN:RANGE= */
@@ -292,15 +316,24 @@ int main(int argc, char **argv) {
 	/*        rather than 12-bit with single-ended */
 	/*        See USB-120FS-Plus user guide page 11 */
 	/*        But table on page 20 says the opposite? */
-	sendMessage(&device,"AISCAN:RANGE=BIP5V",out_message);
-	/* Set range for scaling purposes */
-        minVoltage = -5;
-        maxVoltage = 5;
+
+	if (mode==MODE_SINGLE_ENDED) {
+		sendMessage(&device,"AISCAN:RANGE=BIP10V",out_message);
+		/* Set range for scaling purposes */
+        	minVoltage = -10;
+        	maxVoltage = 10;
+	}
+	else {
+		sendMessage(&device,"AISCAN:RANGE=BIP5V",out_message);
+		/* Set range for scaling purposes */
+        	minVoltage = -5;
+        	maxVoltage = 5;
+	}
 
 	/* Set channels, 0-7 for single-ended, 0-3 for differential */
-	sprintf(temp_message,"AISCAN:LOWCHAN=%d",lowChan);
+	sprintf(temp_message,"AISCAN:LOWCHAN=%d",low_channel);
 	sendMessage(&device,temp_message,out_message);
-	sprintf(temp_message,"AISCAN:HIGHCHAN=%d",highChan);
+	sprintf(temp_message,"AISCAN:HIGHCHAN=%d",high_channel);
 	sendMessage(&device,temp_message,out_message);
 
 	sprintf(temp_message,"AISCAN:RATE=%d",rate);
@@ -315,7 +348,7 @@ int main(int argc, char **argv) {
 	sendMessage(&device,"AISCAN:SAMPLES=0",out_message);
 
         /* Fill cal constants for later use */
-        fillCalConstants(&device,lowChan, highChan);
+        fillCalConstants(&device,low_channel, high_channel);
 
 	/* Start the scan on the device */
 	sendMessage(&device,"AISCAN:START",out_message);
