@@ -1,3 +1,7 @@
+/* Note, the pl2303 serial port seems to bounce for around 5ms */
+/* when the device is opened, so this code does some debouncing */
+/* to aid in automatically finding the starts of the traces */
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,6 +25,8 @@ int main(int argc, char **argv) {
 	double trace_joules=0.0;
 	int time_in_state=0;
 	int threshold=1;
+	double total_joules=0.0;
+	double total_time=0.0;
 
 	if (argc>1) {
 
@@ -107,6 +113,8 @@ int main(int argc, char **argv) {
 					printf("Total Energy: %lfJ Average Power: %lfW\n",
 						trace_joules,
 						trace_joules/((double)trace_ticks/(double)rate));
+					total_joules+=trace_joules;
+					total_time+=(double)trace_ticks/(double)rate;
 					trace++;
 					time_in_state=0;
 				}
@@ -138,6 +146,7 @@ int main(int argc, char **argv) {
 			trace_joules+=(watts/rate);
 			trace_ticks++;
 		}
+
 		ticks++;
 	}
 
@@ -146,7 +155,7 @@ int main(int argc, char **argv) {
 	read(fd,&temp64,8);
 	printf("%06lld)\n",temp64);
 
-
+	printf("Average Joules=%lf\tAverage Watts=%lf\n",total_joules/(double)trace,total_joules/total_time);
 
 	return 0;
 }
