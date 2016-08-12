@@ -126,7 +126,9 @@ static long long read_msr(int fd, int which) {
 #define CPU_BROADWELL		61	// 71 too?
 #define CPU_BROADWELL_EP	79
 #define CPU_BROADWELL_DE	86
-#define CPU_SKYLAKE		78	// 94 too?
+#define CPU_SKYLAKE		78
+#define CPU_SKYLAKE_HS		94
+#define CPU_KNIGHTS_LANDING	87
 
 /* TODO: on Skylake, also may support  PSys "platform" domain,	*/
 /* the whole SoC not just the package.				*/
@@ -195,6 +197,13 @@ static int detect_cpu(void) {
 			break;
 		case CPU_BROADWELL:
 			printf("Broadwell");
+			break;
+		case CPU_SKYLAKE:
+		case CPU_SKYLAKE_HS:
+			printf("Skylake");
+			break;
+		case CPU_KNIGHTS_LANDING:
+			printf("Knight's Landing");
 			break;
 		default:
 			printf("Unsupported model %d\n",model);
@@ -285,8 +294,10 @@ static int rapl_msr(int core, int cpu_model) {
 		cpu_energy_units[j]=pow(0.5,(double)((result>>8)&0x1f));
 		time_units=pow(0.5,(double)((result>>16)&0xf));
 
-		/* On Haswell EP the DRAM units differ from the CPU ones */
-		if (cpu_model==CPU_HASWELL_EP) {
+		/* On Haswell EP and Knights Landing */
+		/* The DRAM units differ from the CPU ones */
+		if ((cpu_model==CPU_HASWELL_EP) ||
+					(cpu_model==CPU_KNIGHTS_LANDING)) {
 			dram_energy_units[j]=pow(0.5,(double)16);
 		}
 		else {
@@ -450,13 +461,14 @@ static int perf_event_open(struct perf_event_attr *hw_event_uptr,
                         group_fd, flags);
 }
 
-#define NUM_RAPL_DOMAINS	4
+#define NUM_RAPL_DOMAINS	5
 
 char rapl_domain_names[NUM_RAPL_DOMAINS][30]= {
 	"energy-cores",
 	"energy-gpu",
 	"energy-pkg",
 	"energy-ram",
+	"energy-psys",
 };
 
 
