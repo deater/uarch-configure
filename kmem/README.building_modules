@@ -1,0 +1,14 @@
+You need to have kernel headers that match your running kernel.
+
+One source of these is here:
+https://www.niksula.hut.fi/~mhiienka/Rpi/linux-headers-rpi/
+
+after installing the matching one you might have to install the "right" 
+version of gcc too, in this case I had to install
+        linux-compiler-gcc-4.7-arm
+
+I then had to chown -R /usr/src/linux-headers* to belong to me for some 
+reason
+
+after that, at least on my pi-2 I was able to build my module and install 
+it (with insmod ./rasp-pi-brpred.ko) just fine.
