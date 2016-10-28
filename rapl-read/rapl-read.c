@@ -381,9 +381,11 @@ static int rapl_msr(int core, int cpu_model) {
 		package_before[j]=(double)result*cpu_energy_units[j];
 
 		/* PP0 energy */
+		if ((cpu_model!=CPU_KNIGHTS_LANDING)) {
 		/* Not available on Haswell-EP? */
-		result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
-		pp0_before[j]=(double)result*cpu_energy_units[j];
+			result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
+			pp0_before[j]=(double)result*cpu_energy_units[j];
+		}
 
 		/* PP1 energy */
 		/* not available on *Bridge-EP */
@@ -398,8 +400,8 @@ static int rapl_msr(int core, int cpu_model) {
 		/* Updated documentation (but not the Vol3B) says Haswell and	*/
 		/* Broadwell have DRAM support too				*/
 		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
-			(cpu_model==CPU_HASWELL_EP) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			(cpu_model==CPU_HASWELL_EP) || (cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_BROADWELL) || (cpu_model==CPU_KNIGHTS_LANDING)) {
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_before[j]=(double)result*dram_energy_units[j];
@@ -422,10 +424,12 @@ static int rapl_msr(int core, int cpu_model) {
 		printf("\t\tPackage energy: %.6fJ\n",
 			package_after[j]-package_before[j]);
 
-		result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
-		pp0_after[j]=(double)result*cpu_energy_units[j];
-		printf("\t\tPowerPlane0 (cores): %.6fJ\n",
-			pp0_after[j]-pp0_before[j]);
+		if ((cpu_model!=CPU_KNIGHTS_LANDING)) {
+			result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
+			pp0_after[j]=(double)result*cpu_energy_units[j];
+			printf("\t\tPowerPlane0 (cores): %.6fJ\n",
+				pp0_after[j]-pp0_before[j]);
+		}
 
 		/* not available on SandyBridge-EP */
 		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
@@ -437,8 +441,8 @@ static int rapl_msr(int core, int cpu_model) {
 		}
 
 		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
-			(cpu_model==CPU_HASWELL_EP) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			(cpu_model==CPU_HASWELL_EP) || (cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_BROADWELL) || (cpu_model==CPU_KNIGHTS_LANDING)) {
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_after[j]=(double)result*dram_energy_units[j];
