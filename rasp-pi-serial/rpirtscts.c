@@ -4,7 +4,7 @@
 
     Copyright (C) 2013 Matthew Hollingworth.
 
-    40 pin header support for newer Raspberry Pis 
+    40 pin header support for newer Raspberry Pis
     Copyright (C) 2016 Brendan Traw.
 
     This program is free software: you can redistribute it and/or modify
@@ -41,7 +41,7 @@
 #include <errno.h>
 #include <string.h>
 
-int rpi_version(void) {
+static int rpi_version(void) {
 
 	int result = -1;
 	char string[256];
@@ -71,49 +71,109 @@ int rpi_version(void) {
 	return result;
 }
 
-int rpi_gpio_header_type(void) {
+static int rpi_gpio_header_type(int version) {
+
 	int header_type = GPIO_header_40;
-	switch (rpi_version()) { /* Adapted from http://www.raspberrypi-spy.co.uk/2012/09/checking-your-raspberry-pi-board-version/ */
-	case 0x000002: printf("Model B Rev 1.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000003: printf("Model B Rev 1.0+ with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000004: printf("Model B Rev 2.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000005: printf("Model B Rev 2.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000006: printf("Model B Rev 2.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000007: printf("Model A with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000008: printf("Model A with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000009: printf("Model A with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x00000d: printf("Model B Rev 2.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x00000e: printf("Model B Rev 2.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x00000f: printf("Model B Rev 2.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
-	case 0x000010: printf("Model B+ Rev 1.0 with 40 pin GPIO header detected\n"); break;
-	case 0x000014:
-	case 0x000011: printf("Compute Module is not supported\n"); exit(EXIT_FAILURE);
-	case 0x000015:
-	case 0x000012: printf("Model A+ Rev 1.1 with 40 pin GPIO header detected\n"); break;
-	case 0x000013: printf("Model B+ Rev 1.2 with 40 pin GPIO header detected\n"); break;
-	case 0xa01040: printf("Pi 2 Model B Rev 1.0 with 40 pin GPIO header detected\n"); break;
-	case 0xa01041:
-	case 0xa21041: printf("Pi 2 Model B Rev 1.1 with 40 pin GPIO header detected\n"); break;
-	case 0x900092: printf("Pi Zero Rev 1.2 with 40 pin GPIO header detected\n"); break;
-	case 0x900093: printf("Pi Zero Rev 1.3 with 40 pin GPIO header detected\n"); break;
-	case 0xa22082:
-	case 0xa02082: printf("Pi 3 Model B Rev 1.2 with 40 pin GPIO header detected\n"); break;
-	default: printf("Unknown Raspberry Pi - assuming 40 pin GPIO header\n");
+
+	switch (version) {
+		case 0x000002:
+			printf("Model B Rev 1.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000003:
+			printf("Model B Rev 1.0+ with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000004:
+			printf("Model B Rev 2.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000005:
+			printf("Model B Rev 2.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000006:
+			printf("Model B Rev 2.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000007:
+			printf("Model A with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000008:
+			printf("Model A with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000009:
+			printf("Model A with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x00000d:
+			printf("Model B Rev 2.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x00000e:
+			printf("Model B Rev 2.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x00000f:
+			printf("Model B Rev 2.0 with 26 pin\n");
+			header_type = GPIO_header_26;
+			break;
+		case 0x000010:
+			printf("Model B+ Rev 1.0 with 40 pin\n");
+			break;
+		case 0x000014:
+		case 0x000011:
+			printf("Compute Module is not supported\n");
+			exit(EXIT_FAILURE);
+		case 0x000015:
+		case 0x000012:
+			printf("Model A+ Rev 1.1 with 40 pin\n");
+			break;
+		case 0x000013:
+			printf("Model B+ Rev 1.2 with 40 pin\n");
+			break;
+		case 0xa01040:
+			printf("Pi 2 Model B Rev 1.0 with 40 pin\n");
+			break;
+		case 0xa01041:
+		case 0xa21041:
+			printf("Pi 2 Model B Rev 1.1 with 40 pin\n");
+			break;
+		case 0x900092:
+			printf("Pi Zero Rev 1.2 with 40 pin\n");
+			break;
+		case 0x900093:
+			printf("Pi Zero Rev 1.3 with 40 pin\n");
+			break;
+		case 0xa22082:
+		case 0xa02082:
+			printf("Pi 3 Model B Rev 1.2 with 40 pin\n");
+			break;
+		default:
+			printf("Unknown Raspberry Pi - assuming 40 pin\n");
 	}
 	return header_type;
 }
 
 
-void set_rts_cts(int enable) {
+static void set_rts_cts(int enable, int header_type) {
+
 	int gfpsel, gpiomask;
-	int fd = open("/dev/mem", O_RDWR|O_SYNC);
+	int fd;
+	void *gpio_map;
+
+	fd = open("/dev/mem", O_RDWR|O_SYNC);
 	if (fd < 0) {
 		fprintf(stderr, "can't open /dev/mem (%s)\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
-	void *gpio_map = mmap(NULL, BLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, GPIO_BASE);
+	gpio_map = mmap(NULL, BLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED,
+			fd, GPIO_BASE);
 	close(fd);
+
 	if (gpio_map == MAP_FAILED) {
 		fprintf(stderr, "mmap error (%s)\n", strerror(errno));
 		exit(EXIT_FAILURE);
@@ -121,45 +181,67 @@ void set_rts_cts(int enable) {
 
 	volatile unsigned *gpio = (volatile unsigned *)gpio_map;
 
-	if (rpi_gpio_header_type() == GPIO_header_40) { /* newer 40 pin GPIO header */
+	if (enable) printf("Enabling ");
+	else printf("Disabling ");
+
+	/* newer 40 pin GPIO header */
+	if (header_type == GPIO_header_40) {
 		gfpsel = GFPSEL1;
 		gpiomask = GPIO1617mask;
-		printf("Enabling CTS0 and RTS0 on GPIOs 16 and 17\n");
+		printf("CTS0 and RTS0 on GPIOs 16 and 17\n");
 	}
 	else { /* 26 pin GPIO header */
 		gfpsel = GFPSEL3;
 		gpiomask = GPIO3031mask;
-		printf("Enabling CTS0 and RTS0 on GPIOs 30 and 31\n");
+		printf("CTS0 and RTS0 on GPIOs 30 and 31\n");
 	}
 
-	enable ? (gpio[gfpsel] |= gpiomask) : (gpio[gfpsel] &= ~gpiomask);
+	if (enable) {
+		printf("Before: %x mask %x\n",gpio[gfpsel],gpiomask);
+		gpio[gfpsel] |= gpiomask;
+		printf("After: %x\n",gpio[gfpsel]);
+
+	}
+	else {
+		printf("Before: %x\n",gpio[gfpsel]);
+		gpio[gfpsel] &= ~gpiomask;
+		printf("After: %x\n",gpio[gfpsel]);
+
+	}
 }
 
-void print_usage(void) {
-	printf( \
-	"Version: " VERSION "\n" \
-	"Usage: rpirtscts on|off\n" \
-	"Enable or disable hardware flow control pins on ttyAMA0.\n" \
-	"\nFor 26 pin GPIO header boards:\n"    \
-	"P5 header pins remap as follows:\n"	\
-	"    P5-05 (GPIO30) -> CTS (input)\n" \
-	"    P5-06 (GPIO31) -> RTS (output)\n" \
-	"\nFor 40 pin GPIO header boards:\n"    \
-	"    P1-36 (GPIO16) -> CTS (input)\n" \
-	"    P1-11 (GPIO17) -> RTS (output)\n" \
-	"\nYou may also need to enable flow control in the driver:\n" \
-	"    stty -F /dev/ttyAMA0 crtscts\n" \
-	);
+static void print_usage(void) {
+
+	printf( "Version: " VERSION "\n");
+	printf("Usage: rpirtscts on|off\n");
+	printf("Enable or disable hardware flow control pins on ttyAMA0.\n");
+	printf("\nFor 26 pin GPIO header boards:\n");
+	printf("P5 header pins remap as follows:\n");
+	printf("    P5-05 (GPIO30) -> CTS (input)\n");
+	printf("    P5-06 (GPIO31) -> RTS (output)\n");
+	printf("\nFor 40 pin GPIO header boards:\n");
+	printf("    P1-36 (GPIO16) -> CTS (input)\n");
+	printf("    P1-11 (GPIO17) -> RTS (output)\n");
+	printf("\nYou may also need to enable flow control in the driver:\n");
+	printf("    stty -F /dev/ttyAMA0 crtscts\n");
 }
 
 int main(int argc, char **argv) {
 
+	int enable,disable,version,header_type;
+
+	version=rpi_version();
+	header_type=rpi_gpio_header_type(version);
+
 	if (argc != 2) {
 		print_usage();
 	} else {
-		int  enable = strcmp(argv[1],  "on") == 0;
-		int disable = strcmp(argv[1], "off") == 0;
-		enable || disable ? set_rts_cts(enable) : print_usage();
+		enable = !strcmp(argv[1],  "on");
+		disable = !strcmp(argv[1], "off");
+
+		if (enable) set_rts_cts(1,header_type);
+		else if (disable) set_rts_cts(0,header_type);
+		else print_usage();
 	}
 	return EXIT_SUCCESS;
 }
