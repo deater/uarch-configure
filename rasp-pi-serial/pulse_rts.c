@@ -46,11 +46,11 @@ int set_RTS(int fd, int value) {
 
 	if (value) {
 		/* Set RTS value (makes it -9V) */
-		status |= TIOCM_DTR;
+		status |= TIOCM_RTS;
 	}
 	else {
 		/* clear RTS value (makes it +9V) */
-		status &= ~TIOCM_DTR;
+		status &= ~TIOCM_RTS;
 	}
 
 	/* Write out new status */
