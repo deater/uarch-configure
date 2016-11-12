@@ -34,7 +34,13 @@
 
 /* See bcm2835 peripheral guide */
 
-#define GPIO_BASE (0x20200000)
+#define PI2_BASE 0x3F000000
+#define PI_BASE  0x20000000
+
+
+#define PI_GPIO_BASE (PI_BASE + 0x200000)
+#define PI2_GPIO_BASE (PI2_BASE + 0x200000)
+
 #define GFPSEL0 (0)
 #define GFPSEL1 (1)
 #define GFPSEL2 (2)
@@ -51,7 +57,8 @@
 
 #define BLOCK_SIZE (4*1024)
 
-
+static int header_type = GPIO_HEADER_40;
+static int gpio_base = PI_GPIO_BASE;
 
 static int rpi_version(void) {
 
@@ -85,7 +92,6 @@ static int rpi_version(void) {
 
 static int rpi_gpio_header_type(int version) {
 
-	int header_type = GPIO_HEADER_40;
 
 	switch (version) {
 		case 0x000002:
@@ -148,10 +154,12 @@ static int rpi_gpio_header_type(int version) {
 			break;
 		case 0xa01040:
 			printf("Pi 2 Model B Rev 1.0 with 40 pin\n");
+			gpio_base=PI2_GPIO_BASE;
 			break;
 		case 0xa01041:
 		case 0xa21041:
 			printf("Pi 2 Model B Rev 1.1 with 40 pin\n");
+			gpio_base=PI2_GPIO_BASE;
 			break;
 		case 0x900092:
 			printf("Pi Zero Rev 1.2 with 40 pin\n");
@@ -162,6 +170,7 @@ static int rpi_gpio_header_type(int version) {
 		case 0xa22082:
 		case 0xa02082:
 			printf("Pi 3 Model B Rev 1.2 with 40 pin\n");
+			gpio_base=PI2_GPIO_BASE;
 			break;
 		default:
 			printf("Unknown Raspberry Pi - assuming 40 pin\n");
@@ -172,9 +181,10 @@ static int rpi_gpio_header_type(int version) {
 
 static void set_rts_cts(int enable, int header_type) {
 
-	int gfpsel, gpiomask;
+	uint32_t gfpsel, gpiomask;
 	int fd;
 	void *gpio_map;
+	uint32_t temp;
 
 	fd = open("/dev/mem", O_RDWR|O_SYNC);
 	if (fd < 0) {
@@ -183,7 +193,7 @@ static void set_rts_cts(int enable, int header_type) {
 	}
 
 	gpio_map = mmap(NULL, BLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED,
-			fd, GPIO_BASE);
+			fd, gpio_base);
 	close(fd);
 
 	if (gpio_map == MAP_FAILED) {
@@ -209,12 +219,30 @@ static void set_rts_cts(int enable, int header_type) {
 	}
 
 	if (enable) {
-		printf("Before: %x mask %x\n",gpio[gfpsel],gpiomask);
-		gpio[gfpsel] |= gpiomask;
+		temp=gpio[gfpsel];
+		printf("Before: %x mask %x\n",temp,gpiomask);
+
+		/* clear out old value */
+		temp &= ~gpiomask;
+
+		/* Set to ALT3 = 111 */
+		temp |= gpiomask;
+
+		gpio[gfpsel] = temp;
+
 		printf("After: %x\n",gpio[gfpsel]);
+
+		/* GPIO14/15 = ALT0/ALT0 for pl101 uart */
+		/* 10 0100 = 0x24 */
+		/* GPIO14/15 = ALT5/ALT5 for mini-uart */
+		/* 01 0010 = 0x12 */
+
+		printf("GPIO14/15=%x Expect ALT0/ALT0 0x24\n",
+			(temp>>12)&0x3f);
 
 	}
 	else {
+		/* clear to 0.  Input? */
 		printf("Before: %x\n",gpio[gfpsel]);
 		gpio[gfpsel] &= ~gpiomask;
 		printf("After: %x\n",gpio[gfpsel]);
