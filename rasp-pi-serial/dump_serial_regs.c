@@ -296,7 +296,7 @@ static void dump_serial_regs(int header_type) {
 
 	printf("\tIBRD register: %x, FBRD register: %x, Divider=%lf\n",
 		ip,fp,divider);
-	printf("\t\tBaud=%.0lf\n",3000000.0/(16.0*divider));
+	printf("\t\tBaud=%.0lf\n",3000000.0/(divider));
 
 #define UART_LCRH	11
 	temp=serial[UART_LCRH];
