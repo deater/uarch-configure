@@ -1,24 +1,22 @@
 /*
-    A command-line utility for enabling hardware flow control on the
-    Raspberry Pi serial port.
+	A command-line utility for enabling hardware flow control on the
+	Raspberry Pi serial port by setting the proper GPIO pins to ALT3
 
-    Copyright (C) 2013 Matthew Hollingworth.
+	Based on code originally by
+		Copyright (C) 2013 Matthew Hollingworth.
+		Copyright (C) 2016 Brendan Traw.
 
-    40 pin header support for newer Raspberry Pis
-    Copyright (C) 2016 Brendan Traw.
+	Massive cleanup and pi2/pi3 support by Vince Weaver.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	Note, this expects you to be running on the pl201 serial port.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	On Pi3 the mini-uart is the default, you'll have to put
+		dtoverlay=pi3-miniuart-bt
+	in /boot/config.txt for this to work as expected.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	Alternatively you can in theory enable the mini-uart to use RTS by
+	setting GPIO14/15 to ALT5, but that's left as an exercise to the
+	reader.  Also not sure if the Linux driver supports it.
 */
 
 #include <stdio.h>
