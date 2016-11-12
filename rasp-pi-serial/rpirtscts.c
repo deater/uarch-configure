@@ -41,14 +41,27 @@
 #include <errno.h>
 #include <string.h>
 
-int rpi_version() {
+int rpi_version(void) {
+
 	int result = -1;
 	char string[256];
-	FILE *fp = fopen("/proc/cmdline", "r");
+
+	FILE *fp;
+
+	fp = fopen("/proc/cmdline", "r");
 	if (fp) {
-		while (fscanf(fp, "%255s", string) == 1)
+		while (fscanf(fp, "%255s", string) == 1) {
 			if (sscanf(string, "bcm2708.boardrev=%i", &result))
 				break;
+		}
+
+		if (result < 0) {
+			rewind(fp);
+			while (fscanf(fp, "%255s", string) == 1)
+				if (sscanf(string, "bcm2709.boardrev=%i", &result))
+				break;
+		}
+
 		fclose(fp);
 	}
 	if (result < 0) {
@@ -58,7 +71,7 @@ int rpi_version() {
 	return result;
 }
 
-int rpi_gpio_header_type() {
+int rpi_gpio_header_type(void) {
 	int header_type = GPIO_header_40;
 	switch (rpi_version()) { /* Adapted from http://www.raspberrypi-spy.co.uk/2012/09/checking-your-raspberry-pi-board-version/ */
 	case 0x000002: printf("Model B Rev 1.0 with 26 pin GPIO header detected\n"); header_type = GPIO_header_26; break;
@@ -87,7 +100,7 @@ int rpi_gpio_header_type() {
 	case 0xa02082: printf("Pi 3 Model B Rev 1.2 with 40 pin GPIO header detected\n"); break;
 	default: printf("Unknown Raspberry Pi - assuming 40 pin GPIO header\n");
 	}
-	return (header_type);
+	return header_type;
 }
 
 
@@ -98,14 +111,14 @@ void set_rts_cts(int enable) {
 		fprintf(stderr, "can't open /dev/mem (%s)\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-	
+
 	void *gpio_map = mmap(NULL, BLOCK_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED, fd, GPIO_BASE);
 	close(fd);
 	if (gpio_map == MAP_FAILED) {
 		fprintf(stderr, "mmap error (%s)\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
-	
+
 	volatile unsigned *gpio = (volatile unsigned *)gpio_map;
 
 	if (rpi_gpio_header_type() == GPIO_header_40) { /* newer 40 pin GPIO header */
@@ -118,7 +131,7 @@ void set_rts_cts(int enable) {
 		gpiomask = GPIO3031mask;
 		printf("Enabling CTS0 and RTS0 on GPIOs 30 and 31\n");
 	}
-	
+
 	enable ? (gpio[gfpsel] |= gpiomask) : (gpio[gfpsel] &= ~gpiomask);
 }
 
