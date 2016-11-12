@@ -284,6 +284,11 @@ static void dump_serial_regs(int header_type) {
 	if (temp&(1<<3)) printf("\t\tUART BUSY\n");
 	else printf("\t\tUART not busy\n");
 
+	/* CTS */
+	if (temp&(1<<0)) printf("\t\tCTS pin is low\n");
+	else printf("\t\tCTS pin is high\n");
+
+
 #define UART_IBRD	9
 #define UART_FBRD	10
 
