@@ -21,25 +21,37 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define GPIO_BASE (0x20200000)
-#define BLOCK_SIZE (4*1024)
-#define GFPSEL3 (3)
-#define GPIO3031mask 0x0000003f /* GPIO 30 for CTS0 and 31 for RTS0 */
-#define GFPSEL1 (1)
-#define GPIO1617mask 0x00fc0000 /* GPIO 16 for CTS0 and 17 for RTS0 */
-
-#define GPIO_header_26 0x00
-#define GPIO_header_40 0x01
-
-#define VERSION "1.2"
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+
+#define VERSION "2.0"
+
+/* See bcm2835 peripheral guide */
+
+#define GPIO_BASE (0x20200000)
+#define GFPSEL0 (0)
+#define GFPSEL1 (1)
+#define GFPSEL2 (2)
+#define GFPSEL3 (3)
+
+
+/* bits 18-23 */
+#define GPIO1617MASK 0x00fc0000 /* GPIO 16 for CTS0 and 17 for RTS0 */
+#define GPIO3031MASK 0x0000003f /* GPIO 30 for CTS0 and 31 for RTS0 */
+
+#define GPIO_HEADER_26 0x00
+#define GPIO_HEADER_40 0x01
+
+
+#define BLOCK_SIZE (4*1024)
+
+
 
 static int rpi_version(void) {
 
@@ -73,52 +85,52 @@ static int rpi_version(void) {
 
 static int rpi_gpio_header_type(int version) {
 
-	int header_type = GPIO_header_40;
+	int header_type = GPIO_HEADER_40;
 
 	switch (version) {
 		case 0x000002:
 			printf("Model B Rev 1.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000003:
 			printf("Model B Rev 1.0+ with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000004:
 			printf("Model B Rev 2.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000005:
 			printf("Model B Rev 2.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000006:
 			printf("Model B Rev 2.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000007:
 			printf("Model A with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000008:
 			printf("Model A with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000009:
 			printf("Model A with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x00000d:
 			printf("Model B Rev 2.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x00000e:
 			printf("Model B Rev 2.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x00000f:
 			printf("Model B Rev 2.0 with 26 pin\n");
-			header_type = GPIO_header_26;
+			header_type = GPIO_HEADER_26;
 			break;
 		case 0x000010:
 			printf("Model B+ Rev 1.0 with 40 pin\n");
@@ -179,20 +191,20 @@ static void set_rts_cts(int enable, int header_type) {
 		exit(EXIT_FAILURE);
 	}
 
-	volatile unsigned *gpio = (volatile unsigned *)gpio_map;
+	volatile uint32_t *gpio = (volatile uint32_t *)gpio_map;
 
 	if (enable) printf("Enabling ");
 	else printf("Disabling ");
 
 	/* newer 40 pin GPIO header */
-	if (header_type == GPIO_header_40) {
+	if (header_type == GPIO_HEADER_40) {
 		gfpsel = GFPSEL1;
-		gpiomask = GPIO1617mask;
+		gpiomask = GPIO1617MASK;
 		printf("CTS0 and RTS0 on GPIOs 16 and 17\n");
 	}
 	else { /* 26 pin GPIO header */
 		gfpsel = GFPSEL3;
-		gpiomask = GPIO3031mask;
+		gpiomask = GPIO3031MASK;
 		printf("CTS0 and RTS0 on GPIOs 30 and 31\n");
 	}
 
