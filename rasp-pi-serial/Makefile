@@ -2,7 +2,15 @@ CC = gcc
 CFLAGS = -Wall -O2
 LFLAGS =
 
-all:	toggle_rts toggle_dtr rpirtscts pulse_rts dump_serial_regs
+all:	toggle_rts toggle_dtr rpirtscts pulse_rts dump_serial_regs dump_rts_cts
+
+
+dump_rts_cts:	dump_rts_cts.o
+	$(CC) $(LFLAGS) -o dump_rts_cts dump_rts_cts.o
+
+dump_rts_cts.o:	dump_rts_cts.c
+	$(CC) $(CFLAGS) -c dump_rts_cts.c
+
 
 
 dump_serial_regs:	dump_serial_regs.o
@@ -42,4 +50,4 @@ toggle_dtr.o:	toggle_dtr.c
 
 
 clean:	
-	rm -f *~ *.o toggle_rts toggle_dtr rpirtscts pulse_rts dump_serial_regs
+	rm -f *~ *.o toggle_rts toggle_dtr rpirtscts pulse_rts dump_serial_regs dump_rts_cts
