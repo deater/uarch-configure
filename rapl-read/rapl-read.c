@@ -129,6 +129,9 @@ static long long read_msr(int fd, int which) {
 #define CPU_SKYLAKE		78
 #define CPU_SKYLAKE_HS		94
 #define CPU_KNIGHTS_LANDING	87
+#define CPU_KABYLAKE		142
+#define CPU_KABYLAKE_2		158
+
 
 /* TODO: on Skylake, also may support  PSys "platform" domain,	*/
 /* the whole SoC not just the package.				*/
@@ -201,6 +204,10 @@ static int detect_cpu(void) {
 		case CPU_SKYLAKE:
 		case CPU_SKYLAKE_HS:
 			printf("Skylake");
+			break;
+		case CPU_KABYLAKE:
+		case CPU_KABYLAKE_2:
+			printf("Kaby Lake");
 			break;
 		case CPU_KNIGHTS_LANDING:
 			printf("Knight's Landing");
