@@ -70,6 +70,9 @@
 #define MSR_DRAM_PERF_STATUS		0x61B
 #define MSR_DRAM_POWER_INFO		0x61C
 
+/* PSYS RAPL Domain */
+#define MSR_PLATFORM_ENERGY_STATUS	0x64d
+
 /* RAPL UNIT BITMASK */
 #define POWER_UNIT_OFFSET	0
 #define POWER_UNIT_MASK		0x0F
@@ -279,6 +282,7 @@ static int rapl_msr(int core, int cpu_model) {
 	double pp0_before[MAX_PACKAGES],pp0_after[MAX_PACKAGES];
 	double pp1_before[MAX_PACKAGES],pp1_after[MAX_PACKAGES];
 	double dram_before[MAX_PACKAGES],dram_after[MAX_PACKAGES];
+	double psys_before[MAX_PACKAGES],psys_after[MAX_PACKAGES];
 	double thermal_spec_power,minimum_power,maximum_power,time_window;
 	int j;
 
@@ -416,6 +420,15 @@ static int rapl_msr(int core, int cpu_model) {
 			dram_before[j]=(double)result*dram_energy_units[j];
 		}
 
+
+		/* Skylake and newer for Psys				*/
+		if ((cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+
+			result=read_msr(fd,MSR_PLATFORM_ENERGY_STATUS);
+			psys_before[j]=(double)result*cpu_energy_units[j];
+		}
+
 		close(fd);
 	}
 
@@ -463,6 +476,17 @@ static int rapl_msr(int core, int cpu_model) {
 			printf("\t\tDRAM: %.6fJ\n",
 				dram_after[j]-dram_before[j]);
 		}
+
+		if ((cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+
+
+			result=read_msr(fd,MSR_PLATFORM_ENERGY_STATUS);
+			psys_after[j]=(double)result*cpu_energy_units[j];
+			printf("\t\tPSYS: %.6fJ\n",
+				psys_after[j]-psys_before[j]);
+		}
+
 		close(fd);
 	}
 	printf("\n");

@@ -48,6 +48,9 @@
 #define MSR_DRAM_PERF_STATUS		0x61B
 #define MSR_DRAM_POWER_INFO		0x61C
 
+/* PSYS RAPL Domain */
+#define MSR_PLATFORM_ENERGY_STATUS	0x64d
+
 /* RAPL UNIT BITMASK */
 #define POWER_UNIT_OFFSET	0
 #define POWER_UNIT_MASK		0x0F
@@ -412,6 +415,15 @@ static int rapl_msr(int core, int cpu_model) {
 			dram_energy[j]=(double)result*dram_energy_units[j];
 		}
 
+		/* PSys is Skylake+ */
+		if ((cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+
+			result=read_msr(fd,MSR_PLATFORM_ENERGY_STATUS);
+			psys_energy[j]=(double)result*cpu_energy_units[j];
+		}
+
+
 		close(fd);
 	}
 
@@ -582,6 +594,12 @@ static int rapl_perf(int core) {
 				else if (!strcmp("energy-gpu",rapl_domain_names[i])) {
 					uncore_energy[j]=(double)value*scale[i];
 				}
+				else if (!strcmp("energy-ram",rapl_domain_names[i])) {
+					dram_energy[j]=(double)value*scale[i];
+				}
+				else if (!strcmp("energy-psys",rapl_domain_names[i])) {
+					psys_energy[j]=(double)value*scale[i];
+				}
 				else {
 					printf("Unknown %s\n",rapl_domain_names[i]);
 				}
@@ -672,6 +690,9 @@ static int rapl_sysfs(int core) {
 				}
 				else if (!strcmp("uncore",event_names[j][i])) {
 					uncore_energy[j]=before[j][i]/1000000.0;
+				}
+				else if (!strcmp("dram",event_names[j][i])) {
+					dram_energy[j]=before[j][i]/1000000.0;
 				}
 				else {
 					printf("Unknown %s\n",event_names[j][i]);
