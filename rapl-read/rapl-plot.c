@@ -682,7 +682,7 @@ static int rapl_sysfs(int core) {
 	for(j=0;j<total_packages;j++) {
 		for(i=0;i<NUM_RAPL_DOMAINS;i++) {
 			if (valid[j][i]) {
-				if (!strcmp("package-0",event_names[j][i])) {
+				if (!strncmp("package",event_names[j][i],7)) {
 					package_energy[j]=before[j][i]/1000000.0;
 				}
 				else if (!strcmp("core",event_names[j][i])) {
@@ -716,6 +716,10 @@ int main(int argc, char **argv) {
 	int cpu_model;
 	int use_sysfs=0,use_perf_event=0,use_msr=0;
 	int j;
+
+	struct timeval current_time;
+	double ct,lt,ot;
+
 
 	printf("\n");
 	printf("RAPL read -- use -s for sysfs, -p for perf_event, -m for msr\n\n");
@@ -755,33 +759,34 @@ int main(int argc, char **argv) {
 	cpu_model=detect_cpu();
 	detect_packages();
 
-
 	if ((!force_msr) && (!force_perf_event)) {
 		result=rapl_sysfs(core);
-	}
-
-	if (result<0) {
-		if ((force_perf_event) && (!force_msr)) {
-			result=rapl_perf_detect(core);
-			rapl_perf(core);
+		if (result==0) {
+			printf("\nUsing sysfs powercap interface to gather results\n\n");
+			use_sysfs=1;
+			goto ready;
 		}
-	} else {
-		printf("\nUsing sysfs powercap interface to gather results\n\n");
-		use_sysfs=1;
 	}
 
-	if (result<0) {
-		result=rapl_detect_msr(core,cpu_model);
-		rapl_msr(core,cpu_model);
+	if ((force_perf_event) && (!force_msr)) {
+		result=rapl_perf_detect(core);
+		rapl_perf(core);
+		if (result==0) {
+			printf("\nUsing perf_event interface to gather results\n\n");
+			use_perf_event=1;
+			goto ready;
+		}
 	}
+
+	result=rapl_detect_msr(core,cpu_model);
+	rapl_msr(core,cpu_model);
+
+	if (result==0) {
+		printf("\nUsing /dev/msr interface to gather results\n\n");
+		use_msr=1;
+	}
+
 	else {
-		printf("\nUsing perf_event interface to gather results\n\n");
-		use_perf_event=1;
-	}
-
-
-	if (result<0) {
-
 		printf("Unable to read RAPL counters.\n");
 		printf("* Verify you have an Intel Sandybridge or newer processor\n");
 		printf("* You may need to run as root or have /proc/sys/kernel/perf_event_paranoid set properly\n");
@@ -790,13 +795,9 @@ int main(int argc, char **argv) {
 
 		return -1;
 	}
-	else {
-		printf("\nUsing /dev/msr interface to gather results\n\n");
-		use_msr=1;
-	}
 
-	struct timeval current_time;
-	double ct,lt,ot;
+ready:
+
 
 	gettimeofday(&current_time, NULL);
 	lt=current_time.tv_sec+(current_time.tv_usec/1000000.0);
