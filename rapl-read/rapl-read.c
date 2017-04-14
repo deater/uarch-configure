@@ -440,7 +440,11 @@ static int rapl_msr(int core, int cpu_model) {
 
 		/* not available on SandyBridge-EP */
 		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+
+
 			result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
 			pp1_after[j]=(double)result*cpu_energy_units[j];
 			printf("\t\tPowerPlane1 (on-core GPU if avail): %.6f J\n",
@@ -449,7 +453,10 @@ static int rapl_msr(int core, int cpu_model) {
 
 		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
 			(cpu_model==CPU_HASWELL_EP) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_after[j]=(double)result*dram_energy_units[j];
