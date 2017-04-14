@@ -395,7 +395,9 @@ static int rapl_msr(int core, int cpu_model) {
 		/* PP1 energy */
 		/* not available on *Bridge-EP */
 		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
 
 	 		result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
 			pp1_before[j]=(double)result*cpu_energy_units[j];
@@ -406,7 +408,9 @@ static int rapl_msr(int core, int cpu_model) {
 		/* Broadwell have DRAM support too				*/
 		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
 			(cpu_model==CPU_HASWELL_EP) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_before[j]=(double)result*dram_energy_units[j];
