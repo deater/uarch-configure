@@ -19,7 +19,7 @@ rapl-plot.o:	rapl-plot.c
 
 
 clean:	
-	rm -f *.o *~ rapl-read
+	rm -f *.o *~ rapl-read rapl-plot
 
 install:
 	scp rapl-read.c vweaver@sasquatch.eece.maine.edu:public_html/projects/rapl
