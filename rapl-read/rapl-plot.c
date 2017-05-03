@@ -71,6 +71,14 @@ double uncore_energy[MAX_PACKAGES],last_uncore[MAX_PACKAGES];
 double dram_energy[MAX_PACKAGES],last_dram[MAX_PACKAGES];
 double psys_energy[MAX_PACKAGES],last_psys[MAX_PACKAGES];
 
+#define PACKAGE 1
+#define CORES	2
+#define UNCORE	4
+#define DRAM	8
+#define PSYS	16
+
+static int available=PACKAGE|CORES|UNCORE|DRAM|PSYS;
+
 static int open_msr(int core) {
 
 	char msr_filename[BUFSIZ];
@@ -188,6 +196,7 @@ static int detect_cpu(void) {
 			break;
 		case CPU_HASWELL_EP:
 			printf("Haswell-EP");
+			available=PACKAGE|DRAM;
 			break;
 		case CPU_BROADWELL_EP:
 			printf("Broadwell-EP");
@@ -721,6 +730,7 @@ int main(int argc, char **argv) {
 	int cpu_model;
 	int use_sysfs=0,use_perf_event=0,use_msr=0;
 	int j;
+	int first_time=1;
 
 	struct timeval current_time;
 	double ct,lt,ot;
@@ -803,7 +813,6 @@ int main(int argc, char **argv) {
 
 ready:
 
-
 	gettimeofday(&current_time, NULL);
 	lt=current_time.tv_sec+(current_time.tv_usec/1000000.0);
 	ot=lt;
@@ -818,10 +827,15 @@ ready:
 	/* PLOT LOOP */
 	printf("Time (s)\t");
 	for(j=0;j<total_packages;j++) {
-		printf("Package%d(W)\tCores(W)\tGPU(W)\t\tDRAM(W)\t\tPsys(W)|",j);
+		if (available&PACKAGE) printf("Package%d(W)\t",j);
+		if (available&CORES) printf("Cores(W)\t");
+		if (available&UNCORE) printf("GPU(W)\t\t");
+		if (available&DRAM) printf("DRAM(W)\t\t");
+		if (available&PSYS) printf("Psys(W)|\t");
 	}
 	printf("\n");
 	while(1) {
+
 		gettimeofday(&current_time, NULL);
 		ct=current_time.tv_sec+(current_time.tv_usec/1000000.0);
 
@@ -835,17 +849,25 @@ ready:
 			result=rapl_msr(core,cpu_model);
 		}
 
+		if (first_time) {
+			first_time=0;
+		}
+		else {
 		printf("%lf\t",ct-ot);
 		for(j=0;j<total_packages;j++) {
-			printf("%lf\t%lf\t%lf\t%lf\t%lf",
-				(package_energy[j]-last_package[j])/(ct-lt),
-				(cores_energy[j]-last_cores[j])/(ct-lt),
-				(uncore_energy[j]-last_uncore[j])/(ct-lt),
-				(dram_energy[j]-last_dram[j])/(ct-lt),
-				(psys_energy[j]-last_psys[j])/(ct-lt)
-			);
+			if (available&PACKAGE) printf("%lf\t",
+					(package_energy[j]-last_package[j])/(ct-lt));
+			if (available&CORES) printf("%lf\t",
+					(cores_energy[j]-last_cores[j])/(ct-lt));
+			if (available&UNCORE) printf("%lf\t",
+					(uncore_energy[j]-last_uncore[j])/(ct-lt));
+			if (available&DRAM) printf("%lf\t",
+					(dram_energy[j]-last_dram[j])/(ct-lt));
+			if (available&PSYS) printf("%lf\t",
+					(psys_energy[j]-last_psys[j])/(ct-lt));
 		}
 		printf("\n");
+		}
 		usleep(500000);
 		lt=ct;
 		for(j=0;j<total_packages;j++) {
@@ -855,6 +877,7 @@ ready:
 			last_dram[j]=dram_energy[j];
 			last_psys[j]=psys_energy[j];
 		}
+		fflush(stdout);
 	}
 
 	return 0;
