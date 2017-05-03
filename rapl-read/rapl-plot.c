@@ -187,6 +187,7 @@ static int detect_cpu(void) {
 			break;
 		case CPU_IVYBRIDGE:
 			printf("Ivybridge");
+			available=PACKAGE|CORES|UNCORE;
 			break;
 		case CPU_IVYBRIDGE_EP:
 			printf("Ivybridge-EP");
