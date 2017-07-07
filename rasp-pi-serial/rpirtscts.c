@@ -58,6 +58,30 @@
 static int header_type = GPIO_HEADER_40;
 static int gpio_base = PI_GPIO_BASE;
 
+char *boardrevision_examples =
+"\n"
+"0x000002: Model B Rev 1.0\n"
+"0x000003: Model B Rev 1.0+\n"
+"0x000004: Model B Rev 2.0\n"
+"0x000005: Model B Rev 2.0\n"
+"0x000006: Model B Rev 2.0\n"
+"0x000007: Model A\n"
+"0x000008: Model A\n"
+"0x000009: Model A\n"
+"0x00000d: Model B Rev 2.0\n"
+"0x00000e: Model B Rev 2.0\n"
+"0x00000f: Model B Rev 2.0\n"
+"0x000010: Model B+ Rev 1.0\n"
+"0x000014, 0x000011: Compute Module is not supported\n"
+"0x000015, 0x000012: Model A+ Rev 1.1\n"
+"0x000013: Model B+ Rev 1.2\n"
+"0xa01040: Pi 2 Model B Rev 1.0\n"
+"0xa01041, 0xa21041: Pi 2 Model B Rev 1.1\n"
+"0x900092: Pi Zero Rev 1.2\n"
+"0x900093: Pi Zero Rev 1.3\n"
+"0xa22082, 0xa02082: Pi 3 Model B Rev 1.2\n"
+"\n";
+
 static int rpi_version(void) {
 
 	int result = -1;
@@ -75,18 +99,24 @@ static int rpi_version(void) {
 		if (result < 0) {
 			rewind(fp);
 			while (fscanf(fp, "%255s", string) == 1)
+			{
 				if (sscanf(string, "bcm2709.boardrev=%i", &result))
-				break;
+					break;
+			}
 		}
 
 		fclose(fp);
 	}
 	if (result < 0) {
 		fprintf(stderr, "can't parse /proc/cmdline\n");
-		exit(EXIT_FAILURE);
+		fprintf(stderr, boardrevision_examples);
+		fprintf(stderr, "Or try 'cat /prc/cpuinfo'\n");
+		fprintf(stderr, "Please type in the board revision (0x000000): ");
+		scanf("%i", &result);
 	}
 	return result;
 }
+
 
 static int rpi_gpio_header_type(int version) {
 
