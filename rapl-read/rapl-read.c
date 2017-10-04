@@ -131,6 +131,7 @@ static long long read_msr(int fd, int which) {
 #define CPU_BROADWELL_DE	86
 #define CPU_SKYLAKE		78
 #define CPU_SKYLAKE_HS		94
+#define CPU_SKYLAKE_X		85
 #define CPU_KNIGHTS_LANDING	87
 #define CPU_KABYLAKE		142
 #define CPU_KABYLAKE_2		158
@@ -210,6 +211,9 @@ static int detect_cpu(void) {
 		case CPU_SKYLAKE:
 		case CPU_SKYLAKE_HS:
 			printf("Skylake");
+			break;
+		case CPU_SKYLAKE_X:
+			printf("Skylake-X");
 			break;
 		case CPU_KABYLAKE:
 		case CPU_KABYLAKE_2:
@@ -310,8 +314,10 @@ static int rapl_msr(int core, int cpu_model) {
 
 		/* On Haswell EP and Knights Landing */
 		/* The DRAM units differ from the CPU ones */
-		if ((cpu_model==CPU_HASWELL_EP) || (cpu_model==CPU_BROADWELL_EP) ||
-					(cpu_model==CPU_KNIGHTS_LANDING)) {
+		if ((cpu_model==CPU_HASWELL_EP) ||
+				(cpu_model==CPU_BROADWELL_EP) ||
+				(cpu_model==CPU_SKYLAKE_X) ||
+				(cpu_model==CPU_KNIGHTS_LANDING)) {
 			dram_energy_units[j]=pow(0.5,(double)16);
 			printf("DRAM: Using %lf instead of %lf\n",
 				dram_energy_units[j],cpu_energy_units[j]);
@@ -415,11 +421,17 @@ static int rapl_msr(int core, int cpu_model) {
 
 		/* Updated documentation (but not the Vol3B) says Haswell and	*/
 		/* Broadwell have DRAM support too				*/
-		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
-			(cpu_model==CPU_HASWELL_EP) || (cpu_model==CPU_BROADWELL_EP) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
-			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+		if ((cpu_model==CPU_SANDYBRIDGE_EP) ||
+			(cpu_model==CPU_IVYBRIDGE_EP) ||
+			(cpu_model==CPU_HASWELL_EP) ||
+			(cpu_model==CPU_BROADWELL_EP) ||
+			(cpu_model==CPU_SKYLAKE_X) ||
+			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_SKYLAKE) ||
+			(cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) ||
+			(cpu_model==CPU_KABYLAKE_2)) {
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_before[j]=(double)result*dram_energy_units[j];
@@ -469,11 +481,17 @@ static int rapl_msr(int core, int cpu_model) {
 				pp1_after[j]-pp1_before[j]);
 		}
 
-		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP) ||
-			(cpu_model==CPU_HASWELL_EP) || (cpu_model==CPU_BROADWELL_EP) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
-			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+		if ((cpu_model==CPU_SANDYBRIDGE_EP) ||
+			(cpu_model==CPU_IVYBRIDGE_EP) ||
+			(cpu_model==CPU_HASWELL_EP) ||
+			(cpu_model==CPU_BROADWELL_EP) ||
+			(cpu_model==CPU_SKYLAKE_X) ||
+			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_SKYLAKE) ||
+			(cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) ||
+			(cpu_model==CPU_KABYLAKE_2)) {
 
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
