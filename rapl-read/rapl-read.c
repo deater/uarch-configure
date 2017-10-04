@@ -490,6 +490,7 @@ static int rapl_msr(int core, int cpu_model) {
 
 		/* PP0 energy */
 		/* Not available on Knights* */
+		/* Always returns zero on Haswell-EP? */
 		if (pp0_avail) {
 			result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
 			pp0_before[j]=(double)result*cpu_energy_units[j];
