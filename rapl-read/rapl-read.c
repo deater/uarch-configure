@@ -124,17 +124,21 @@ static long long read_msr(int fd, int which) {
 #define CPU_SANDYBRIDGE_EP	45
 #define CPU_IVYBRIDGE		58
 #define CPU_IVYBRIDGE_EP	62
-#define CPU_HASWELL		60	// 69,70 too?
+#define CPU_HASWELL		60
+#define CPU_HASWELL_ULT		69
+#define CPU_HASWELL_GT3E	70
 #define CPU_HASWELL_EP		63
-#define CPU_BROADWELL		61	// 71 too?
+#define CPU_BROADWELL		61
+#define CPU_BROADWELL_GT3E	71
 #define CPU_BROADWELL_EP	79
 #define CPU_BROADWELL_DE	86
 #define CPU_SKYLAKE		78
 #define CPU_SKYLAKE_HS		94
 #define CPU_SKYLAKE_X		85
 #define CPU_KNIGHTS_LANDING	87
-#define CPU_KABYLAKE		142
-#define CPU_KABYLAKE_2		158
+#define CPU_KNIGHTS_MILL	133
+#define CPU_KABYLAKE_MOBILE	142
+#define CPU_KABYLAKE		158
 
 
 /* TODO: on Skylake, also may support  PSys "platform" domain,	*/
@@ -197,12 +201,15 @@ static int detect_cpu(void) {
 			printf("Ivybridge-EP");
 			break;
 		case CPU_HASWELL:
+		case CPU_HASWELL_ULT:
+		case CPU_HASWELL_GT3E:
 			printf("Haswell");
 			break;
 		case CPU_HASWELL_EP:
 			printf("Haswell-EP");
 			break;
 		case CPU_BROADWELL:
+		case CPU_BROADWELL_GT3E:
 			printf("Broadwell");
 			break;
 		case CPU_BROADWELL_EP:
@@ -216,11 +223,14 @@ static int detect_cpu(void) {
 			printf("Skylake-X");
 			break;
 		case CPU_KABYLAKE:
-		case CPU_KABYLAKE_2:
+		case CPU_KABYLAKE_MOBILE:
 			printf("Kaby Lake");
 			break;
 		case CPU_KNIGHTS_LANDING:
 			printf("Knight's Landing");
+			break;
+		case CPU_KNIGHTS_MILL:
+			printf("Knight's Mill");
 			break;
 		default:
 			printf("Unsupported model %d\n",model);
@@ -317,7 +327,8 @@ static int rapl_msr(int core, int cpu_model) {
 		if ((cpu_model==CPU_HASWELL_EP) ||
 				(cpu_model==CPU_BROADWELL_EP) ||
 				(cpu_model==CPU_SKYLAKE_X) ||
-				(cpu_model==CPU_KNIGHTS_LANDING)) {
+				(cpu_model==CPU_KNIGHTS_LANDING) ||
+				(cpu_model==CPU_KNIGHTS_MILL)) {
 			dram_energy_units[j]=pow(0.5,(double)16);
 			printf("DRAM: Using %lf instead of %lf\n",
 				dram_energy_units[j],cpu_energy_units[j]);
@@ -381,8 +392,13 @@ static int rapl_msr(int core, int cpu_model) {
 		}
 
 
-		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL)) {
+		if ((cpu_model==CPU_SANDYBRIDGE) ||
+			(cpu_model==CPU_IVYBRIDGE) ||
+			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_HASWELL_ULT) ||
+			(cpu_model==CPU_HASWELL_GT3E) ||
+			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_BROADWELL_GT3E)) {
 
 			result=read_msr(fd,MSR_PP1_POLICY);
 			int pp1_policy=(int)result&0x001f;
@@ -409,10 +425,17 @@ static int rapl_msr(int core, int cpu_model) {
 
 		/* PP1 energy */
 		/* not available on *Bridge-EP */
-		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
-			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+		if ((cpu_model==CPU_SANDYBRIDGE) ||
+			(cpu_model==CPU_IVYBRIDGE) ||
+			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_HASWELL_ULT) ||
+			(cpu_model==CPU_HASWELL_GT3E) ||
+			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_BROADWELL_GT3E) ||
+			(cpu_model==CPU_SKYLAKE) ||
+			(cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) ||
+			(cpu_model==CPU_KABYLAKE_MOBILE)) {
 
 	 		result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
 			pp1_before[j]=(double)result*cpu_energy_units[j];
@@ -425,13 +448,18 @@ static int rapl_msr(int core, int cpu_model) {
 			(cpu_model==CPU_IVYBRIDGE_EP) ||
 			(cpu_model==CPU_HASWELL_EP) ||
 			(cpu_model==CPU_BROADWELL_EP) ||
+			(cpu_model==CPU_KNIGHTS_LANDING) ||
+			(cpu_model==CPU_KNIGHTS_MILL) ||
 			(cpu_model==CPU_SKYLAKE_X) ||
 			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_HASWELL_ULT) ||
+			(cpu_model==CPU_HASWELL_GT3E) ||
 			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_BROADWELL_GT3E) ||
 			(cpu_model==CPU_SKYLAKE) ||
 			(cpu_model==CPU_SKYLAKE_HS) ||
 			(cpu_model==CPU_KABYLAKE) ||
-			(cpu_model==CPU_KABYLAKE_2)) {
+			(cpu_model==CPU_KABYLAKE_MOBILE)) {
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_before[j]=(double)result*dram_energy_units[j];
@@ -439,8 +467,10 @@ static int rapl_msr(int core, int cpu_model) {
 
 
 		/* Skylake and newer for Psys				*/
-		if ((cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+		if ((cpu_model==CPU_SKYLAKE) ||
+			(cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) ||
+			(cpu_model==CPU_KABYLAKE_MOBILE)) {
 
 			result=read_msr(fd,MSR_PLATFORM_ENERGY_STATUS);
 			psys_before[j]=(double)result*cpu_energy_units[j];
@@ -469,11 +499,17 @@ static int rapl_msr(int core, int cpu_model) {
 			pp0_after[j]-pp0_before[j]);
 
 		/* not available on SandyBridge-EP */
-		if ((cpu_model==CPU_SANDYBRIDGE) || (cpu_model==CPU_IVYBRIDGE) ||
-			(cpu_model==CPU_HASWELL) || (cpu_model==CPU_BROADWELL) ||
-			(cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
-
+		if ((cpu_model==CPU_SANDYBRIDGE) ||
+			(cpu_model==CPU_IVYBRIDGE) ||
+			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_HASWELL_ULT) ||
+			(cpu_model==CPU_HASWELL_GT3E) ||
+			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_BROADWELL_GT3E) ||
+			(cpu_model==CPU_SKYLAKE) ||
+			(cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) ||
+			(cpu_model==CPU_KABYLAKE_MOBILE)) {
 
 			result=read_msr(fd,MSR_PP1_ENERGY_STATUS);
 			pp1_after[j]=(double)result*cpu_energy_units[j];
@@ -486,13 +522,17 @@ static int rapl_msr(int core, int cpu_model) {
 			(cpu_model==CPU_HASWELL_EP) ||
 			(cpu_model==CPU_BROADWELL_EP) ||
 			(cpu_model==CPU_SKYLAKE_X) ||
+			(cpu_model==CPU_KNIGHTS_LANDING) ||
+			(cpu_model==CPU_KNIGHTS_MILL) ||
 			(cpu_model==CPU_HASWELL) ||
+			(cpu_model==CPU_HASWELL_ULT) ||
+			(cpu_model==CPU_HASWELL_GT3E) ||
 			(cpu_model==CPU_BROADWELL) ||
+			(cpu_model==CPU_BROADWELL_GT3E) ||
 			(cpu_model==CPU_SKYLAKE) ||
 			(cpu_model==CPU_SKYLAKE_HS) ||
 			(cpu_model==CPU_KABYLAKE) ||
-			(cpu_model==CPU_KABYLAKE_2)) {
-
+			(cpu_model==CPU_KABYLAKE_MOBILE)) {
 
 			result=read_msr(fd,MSR_DRAM_ENERGY_STATUS);
 			dram_after[j]=(double)result*dram_energy_units[j];
@@ -500,8 +540,10 @@ static int rapl_msr(int core, int cpu_model) {
 				dram_after[j]-dram_before[j]);
 		}
 
-		if ((cpu_model==CPU_SKYLAKE) || (cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) || (cpu_model==CPU_KABYLAKE_2)) {
+		if ((cpu_model==CPU_SKYLAKE) ||
+			(cpu_model==CPU_SKYLAKE_HS) ||
+			(cpu_model==CPU_KABYLAKE) ||
+			(cpu_model==CPU_KABYLAKE_MOBILE)) {
 
 
 			result=read_msr(fd,MSR_PLATFORM_ENERGY_STATUS);
