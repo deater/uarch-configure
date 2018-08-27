@@ -40,7 +40,8 @@
 #include <sys/syscall.h>
 #include <linux/perf_event.h>
 
-#define MSR_RAPL_POWER_UNIT		0x606
+#define MSR_INTEL_RAPL_POWER_UNIT		0x606
+#define MSR_AMD_RAPL_POWER_UNIT			0xc0010299
 
 /*
  * Platform specific RAPL Domains.
@@ -108,17 +109,21 @@ static int open_msr(int core) {
 	return fd;
 }
 
-static long long read_msr(int fd, int which) {
+static long long read_msr(int fd, unsigned int which) {
 
 	uint64_t data;
 
 	if ( pread(fd, &data, sizeof data, which) != sizeof data ) {
 		perror("rdmsr:pread");
+		fprintf(stderr,"Error reading MSR %x\n",which);
 		exit(127);
 	}
 
 	return (long long)data;
 }
+
+#define CPU_VENDOR_INTEL	1
+#define CPU_VENDOR_AMD		2
 
 #define CPU_SANDYBRIDGE		42
 #define CPU_SANDYBRIDGE_EP	45
@@ -147,6 +152,11 @@ static long long read_msr(int fd, int which) {
 #define CPU_ATOM_GEMINI_LAKE	122
 #define CPU_ATOM_DENVERTON	95
 
+#define CPU_AMD_FAM17H		0xc000
+
+static unsigned int msr_rapl_units;
+
+
 /* TODO: on Skylake, also may support  PSys "platform" domain,	*/
 /* the whole SoC not just the package.				*/
 /* see dcee75b3b7f025cc6765e6c92ba0a4e59a4d25f4			*/
@@ -155,9 +165,9 @@ static int detect_cpu(void) {
 
 	FILE *fff;
 
-	int family,model=-1;
+	int vendor=-1,family,model=-1;
 	char buffer[BUFSIZ],*result;
-	char vendor[BUFSIZ];
+	char vendor_string[BUFSIZ];
 
 	fff=fopen("/proc/cpuinfo","r");
 	if (fff==NULL) return -1;
@@ -167,20 +177,18 @@ static int detect_cpu(void) {
 		if (result==NULL) break;
 
 		if (!strncmp(result,"vendor_id",8)) {
-			sscanf(result,"%*s%*s%s",vendor);
+			sscanf(result,"%*s%*s%s",vendor_string);
 
-			if (strncmp(vendor,"GenuineIntel",12)) {
-				printf("%s not an Intel chip\n",vendor);
-				return -1;
+			if (!strncmp(vendor_string,"GenuineIntel",12)) {
+				vendor=CPU_VENDOR_INTEL;
+			}
+			if (!strncmp(vendor_string,"AuthenticAMD",12)) {
+				vendor=CPU_VENDOR_AMD;
 			}
 		}
 
 		if (!strncmp(result,"cpu family",10)) {
 			sscanf(result,"%*s%*s%*s%d",&family);
-			if (family!=6) {
-				printf("Wrong CPU family %d\n",family);
-				return -1;
-			}
 		}
 
 		if (!strncmp(result,"model",5)) {
@@ -189,65 +197,85 @@ static int detect_cpu(void) {
 
 	}
 
-	fclose(fff);
+	if (vendor==CPU_VENDOR_INTEL) {
+		if (family!=6) {
+			printf("Wrong CPU family %d\n",family);
+			return -1;
+		}
 
-	printf("Found ");
+		msr_rapl_units=MSR_INTEL_RAPL_POWER_UNIT;
 
-	switch(model) {
-		case CPU_SANDYBRIDGE:
-			printf("Sandybridge");
-			break;
-		case CPU_SANDYBRIDGE_EP:
-			printf("Sandybridge-EP");
-			break;
-		case CPU_IVYBRIDGE:
-			printf("Ivybridge");
-			break;
-		case CPU_IVYBRIDGE_EP:
-			printf("Ivybridge-EP");
-			break;
-		case CPU_HASWELL:
-		case CPU_HASWELL_ULT:
-		case CPU_HASWELL_GT3E:
-			printf("Haswell");
-			break;
-		case CPU_HASWELL_EP:
-			printf("Haswell-EP");
-			break;
-		case CPU_BROADWELL:
-		case CPU_BROADWELL_GT3E:
-			printf("Broadwell");
-			break;
-		case CPU_BROADWELL_EP:
-			printf("Broadwell-EP");
-			break;
-		case CPU_SKYLAKE:
-		case CPU_SKYLAKE_HS:
-			printf("Skylake");
-			break;
-		case CPU_SKYLAKE_X:
-			printf("Skylake-X");
-			break;
-		case CPU_KABYLAKE:
-		case CPU_KABYLAKE_MOBILE:
-			printf("Kaby Lake");
-			break;
-		case CPU_KNIGHTS_LANDING:
-			printf("Knight's Landing");
-			break;
-		case CPU_KNIGHTS_MILL:
-			printf("Knight's Mill");
-			break;
-		case CPU_ATOM_GOLDMONT:
-		case CPU_ATOM_GEMINI_LAKE:
-		case CPU_ATOM_DENVERTON:
-			printf("Atom");
-			break;
-		default:
-			printf("Unsupported model %d\n",model);
-			model=-1;
-			break;
+		printf("Found ");
+
+		switch(model) {
+			case CPU_SANDYBRIDGE:
+				printf("Sandybridge");
+				break;
+			case CPU_SANDYBRIDGE_EP:
+				printf("Sandybridge-EP");
+				break;
+			case CPU_IVYBRIDGE:
+				printf("Ivybridge");
+				break;
+			case CPU_IVYBRIDGE_EP:
+				printf("Ivybridge-EP");
+				break;
+			case CPU_HASWELL:
+			case CPU_HASWELL_ULT:
+			case CPU_HASWELL_GT3E:
+				printf("Haswell");
+				break;
+			case CPU_HASWELL_EP:
+				printf("Haswell-EP");
+				break;
+			case CPU_BROADWELL:
+			case CPU_BROADWELL_GT3E:
+				printf("Broadwell");
+				break;
+			case CPU_BROADWELL_EP:
+				printf("Broadwell-EP");
+				break;
+			case CPU_SKYLAKE:
+			case CPU_SKYLAKE_HS:
+				printf("Skylake");
+				break;
+			case CPU_SKYLAKE_X:
+				printf("Skylake-X");
+				break;
+			case CPU_KABYLAKE:
+			case CPU_KABYLAKE_MOBILE:
+				printf("Kaby Lake");
+				break;
+			case CPU_KNIGHTS_LANDING:
+				printf("Knight's Landing");
+				break;
+			case CPU_KNIGHTS_MILL:
+				printf("Knight's Mill");
+				break;
+			case CPU_ATOM_GOLDMONT:
+			case CPU_ATOM_GEMINI_LAKE:
+			case CPU_ATOM_DENVERTON:
+				printf("Atom");
+				break;
+			default:
+				printf("Unsupported model %d\n",model);
+				model=-1;
+				break;
+		}
 	}
+
+	if (vendor==CPU_VENDOR_AMD) {
+
+		msr_rapl_units=MSR_AMD_RAPL_POWER_UNIT;
+
+		if (family!=23) {
+			printf("Wrong CPU family %d\n",family);
+			return -1;
+		}
+		model=CPU_AMD_FAM17H;
+	}
+
+	fclose(fff);
 
 	printf(" Processor type\n");
 
@@ -300,6 +328,7 @@ static int detect_packages(void) {
 /*******************************/
 /* MSR code                    */
 /*******************************/
+
 static int rapl_msr(int core, int cpu_model) {
 
 	int fd;
@@ -389,6 +418,13 @@ static int rapl_msr(int core, int cpu_model) {
 			psys_avail=1;
 			break;
 
+		case CPU_AMD_FAM17H:
+			pp0_avail=1;		// maybe
+			pp1_avail=0;
+			dram_avail=0;
+			different_units=0;
+			psys_avail=0;
+			break;
 	}
 
 	for(j=0;j<total_packages;j++) {
@@ -397,7 +433,7 @@ static int rapl_msr(int core, int cpu_model) {
 		fd=open_msr(package_map[j]);
 
 		/* Calculate the units used */
-		result=read_msr(fd,MSR_RAPL_POWER_UNIT);
+		result=read_msr(fd,msr_rapl_units);
 
 		power_units=pow(0.5,(double)(result&0xf));
 		cpu_energy_units[j]=pow(0.5,(double)((result>>8)&0x1f));
@@ -513,10 +549,7 @@ static int rapl_msr(int core, int cpu_model) {
 
 
 		/* Skylake and newer for Psys				*/
-		if ((cpu_model==CPU_SKYLAKE) ||
-			(cpu_model==CPU_SKYLAKE_HS) ||
-			(cpu_model==CPU_KABYLAKE) ||
-			(cpu_model==CPU_KABYLAKE_MOBILE)) {
+		if (psys_avail) {
 
 			result=read_msr(fd,MSR_PLATFORM_ENERGY_STATUS);
 			psys_before[j]=(double)result*cpu_energy_units[j];
