@@ -40,9 +40,18 @@
 #include <sys/syscall.h>
 #include <linux/perf_event.h>
 
-#define MSR_INTEL_RAPL_POWER_UNIT		0x606
+
+/* AMD Support */
 #define MSR_AMD_RAPL_POWER_UNIT			0xc0010299
 
+#define MSR_AMD_PKG_ENERGY_STATUS		0xc001029B
+#define MSR_AMD_PP0_ENERGY_STATUS		0xc001029A
+
+
+
+/* Intel support */
+
+#define MSR_INTEL_RAPL_POWER_UNIT		0x606
 /*
  * Platform specific RAPL Domains.
  * Note that PP1 RAPL Domain is supported on 062A only
@@ -50,13 +59,13 @@
  */
 /* Package RAPL Domain */
 #define MSR_PKG_RAPL_POWER_LIMIT	0x610
-#define MSR_PKG_ENERGY_STATUS		0x611
+#define MSR_INTEL_PKG_ENERGY_STATUS	0x611
 #define MSR_PKG_PERF_STATUS		0x613
 #define MSR_PKG_POWER_INFO		0x614
 
 /* PP0 RAPL Domain */
 #define MSR_PP0_POWER_LIMIT		0x638
-#define MSR_PP0_ENERGY_STATUS		0x639
+#define MSR_INTEL_PP0_ENERGY_STATUS	0x639
 #define MSR_PP0_POLICY			0x63A
 #define MSR_PP0_PERF_STATUS		0x63B
 
@@ -154,7 +163,7 @@ static long long read_msr(int fd, unsigned int which) {
 
 #define CPU_AMD_FAM17H		0xc000
 
-static unsigned int msr_rapl_units;
+static unsigned int msr_rapl_units,msr_pkg_energy_status,msr_pp0_energy_status;
 
 
 /* TODO: on Skylake, also may support  PSys "platform" domain,	*/
@@ -204,6 +213,8 @@ static int detect_cpu(void) {
 		}
 
 		msr_rapl_units=MSR_INTEL_RAPL_POWER_UNIT;
+		msr_pkg_energy_status=MSR_INTEL_PKG_ENERGY_STATUS;
+		msr_pp0_energy_status=MSR_INTEL_PP0_ENERGY_STATUS;
 
 		printf("Found ");
 
@@ -267,6 +278,8 @@ static int detect_cpu(void) {
 	if (vendor==CPU_VENDOR_AMD) {
 
 		msr_rapl_units=MSR_AMD_RAPL_POWER_UNIT;
+		msr_pkg_energy_status=MSR_AMD_PKG_ENERGY_STATUS;
+		msr_pp0_energy_status=MSR_AMD_PP0_ENERGY_STATUS;
 
 		if (family!=23) {
 			printf("Wrong CPU family %d\n",family);
@@ -456,32 +469,35 @@ static int rapl_msr(int core, int cpu_model) {
 		printf("\t\tTime units = %.8fs\n",time_units);
 		printf("\n");
 
-		/* Show package power info */
-		result=read_msr(fd,MSR_PKG_POWER_INFO);
-		thermal_spec_power=power_units*(double)(result&0x7fff);
-		printf("\t\tPackage thermal spec: %.3fW\n",thermal_spec_power);
-		minimum_power=power_units*(double)((result>>16)&0x7fff);
-		printf("\t\tPackage minimum power: %.3fW\n",minimum_power);
-		maximum_power=power_units*(double)((result>>32)&0x7fff);
-		printf("\t\tPackage maximum power: %.3fW\n",maximum_power);
-		time_window=time_units*(double)((result>>48)&0x7fff);
-		printf("\t\tPackage maximum time window: %.6fs\n",time_window);
+		if (cpu_model!=CPU_AMD_FAM17H) {
+			/* Show package power info */
+			result=read_msr(fd,MSR_PKG_POWER_INFO);
+			thermal_spec_power=power_units*(double)(result&0x7fff);
+			printf("\t\tPackage thermal spec: %.3fW\n",thermal_spec_power);
+			minimum_power=power_units*(double)((result>>16)&0x7fff);
+			printf("\t\tPackage minimum power: %.3fW\n",minimum_power);
+			maximum_power=power_units*(double)((result>>32)&0x7fff);
+			printf("\t\tPackage maximum power: %.3fW\n",maximum_power);
+			time_window=time_units*(double)((result>>48)&0x7fff);
+			printf("\t\tPackage maximum time window: %.6fs\n",time_window);
 
-		/* Show package power limit */
-		result=read_msr(fd,MSR_PKG_RAPL_POWER_LIMIT);
-		printf("\t\tPackage power limits are %s\n", (result >> 63) ? "locked" : "unlocked");
-		double pkg_power_limit_1 = power_units*(double)((result>>0)&0x7FFF);
-		double pkg_time_window_1 = time_units*(double)((result>>17)&0x007F);
-		printf("\t\tPackage power limit #1: %.3fW for %.6fs (%s, %s)\n",
-			pkg_power_limit_1, pkg_time_window_1,
-			(result & (1LL<<15)) ? "enabled" : "disabled",
-			(result & (1LL<<16)) ? "clamped" : "not_clamped");
-		double pkg_power_limit_2 = power_units*(double)((result>>32)&0x7FFF);
-		double pkg_time_window_2 = time_units*(double)((result>>49)&0x007F);
-		printf("\t\tPackage power limit #2: %.3fW for %.6fs (%s, %s)\n", 
-			pkg_power_limit_2, pkg_time_window_2,
-			(result & (1LL<<47)) ? "enabled" : "disabled",
-			(result & (1LL<<48)) ? "clamped" : "not_clamped");
+			/* Show package power limit */
+			result=read_msr(fd,MSR_PKG_RAPL_POWER_LIMIT);
+			printf("\t\tPackage power limits are %s\n", (result >> 63) ? "locked" : "unlocked");
+			double pkg_power_limit_1 = power_units*(double)((result>>0)&0x7FFF);
+			double pkg_time_window_1 = time_units*(double)((result>>17)&0x007F);
+			printf("\t\tPackage power limit #1: %.3fW for %.6fs (%s, %s)\n",
+				pkg_power_limit_1, pkg_time_window_1,
+				(result & (1LL<<15)) ? "enabled" : "disabled",
+				(result & (1LL<<16)) ? "clamped" : "not_clamped");
+			double pkg_power_limit_2 = power_units*(double)((result>>32)&0x7FFF);
+			double pkg_time_window_2 = time_units*(double)((result>>49)&0x007F);
+			printf("\t\tPackage power limit #2: %.3fW for %.6fs (%s, %s)\n", 
+				pkg_power_limit_2, pkg_time_window_2,
+				(result & (1LL<<47)) ? "enabled" : "disabled",
+				(result & (1LL<<48)) ? "clamped" : "not_clamped");
+		}
+
 
 		/* only available on *Bridge-EP */
 		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
@@ -521,14 +537,14 @@ static int rapl_msr(int core, int cpu_model) {
 		fd=open_msr(package_map[j]);
 
 		/* Package Energy */
-		result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
+		result=read_msr(fd,msr_pkg_energy_status);
 		package_before[j]=(double)result*cpu_energy_units[j];
 
 		/* PP0 energy */
 		/* Not available on Knights* */
 		/* Always returns zero on Haswell-EP? */
 		if (pp0_avail) {
-			result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
+			result=read_msr(fd,msr_pp0_energy_status);
 			pp0_before[j]=(double)result*cpu_energy_units[j];
 		}
 
@@ -567,12 +583,12 @@ static int rapl_msr(int core, int cpu_model) {
 
 		printf("\tPackage %d:\n",j);
 
-		result=read_msr(fd,MSR_PKG_ENERGY_STATUS);
+		result=read_msr(fd,msr_pkg_energy_status);
 		package_after[j]=(double)result*cpu_energy_units[j];
 		printf("\t\tPackage energy: %.6fJ\n",
 			package_after[j]-package_before[j]);
 
-		result=read_msr(fd,MSR_PP0_ENERGY_STATUS);
+		result=read_msr(fd,msr_pp0_energy_status);
 		pp0_after[j]=(double)result*cpu_energy_units[j];
 		printf("\t\tPowerPlane0 (cores): %.6fJ\n",
 			pp0_after[j]-pp0_before[j]);
