@@ -175,10 +175,28 @@ static int detect_cpu(void) {
 			is_core2=0;
 			break;
 
-		case 86: case 79: /* bdw-? */
-			printf("Found Broadwell-?? CPU\n");
+		case 86: case 79: /* bdw-DE/EP */
+			printf("Found Broadwell-DE/EP CPU\n");
 			is_core2=0;
 			break;
+
+		case 78: case 94: /* Skylake */
+			printf("Found Skylake CPU\n");
+			is_core2=0;
+			break;
+
+		case 85: /* Skylake / Cascade Lake Server*/
+			printf("Found Skylake / Cascadelake Server CPU\n");
+			is_core2=0;
+			break;
+
+		case 142: case 158: /* Kabylake */
+			printf("Found Kabylake CPU\n");
+			is_core2=0;
+			break;
+
+
+		/* Core 2 */
 
 		case 15: case 22:
 		case 23: case 29: /* core2 */
