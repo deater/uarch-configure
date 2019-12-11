@@ -1,3 +1,12 @@
 Program to disable the hardware prefetcher on various Intel processors.
 
 Core2 uses 0x1a0 MSR, NHM and newer 0x1a4
+
+Note, you need the msr kernel module installed ("modprobe msr")
+
+If it still doesn't work, check dmesg.  Some recent distributions
+are enabling the "kernel_lockdown" patch which prevents any access
+to MSRs and this tool will not work.  There is no easy way to disable
+this support without either recompiling your kernel or else disabling
+efi-secureboot in your BIOS.
+
