@@ -82,8 +82,10 @@ static int rpi_version(void) {
 		fclose(fp);
 	}
 	if (result < 0) {
-		fprintf(stderr, "can't parse /proc/cmdline\n");
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "Warning: can't parse /proc/cmdline\n");
+		fprintf(stderr, "Assuming Pi3B\n");
+		result=0xa22082;
+//		exit(EXIT_FAILURE);
 	}
 	return result;
 }
