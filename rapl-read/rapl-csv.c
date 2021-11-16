@@ -881,7 +881,7 @@ ready:
 		}
 		printf("\n");
 		}
-		usleep(500000);
+		usleep(1000000);
 		lt=ct;
 		for(j=0;j<total_packages;j++) {
 			last_package[j]=package_energy[j];
