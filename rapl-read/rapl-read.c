@@ -134,6 +134,8 @@ static long long read_msr(int fd, unsigned int which) {
 #define CPU_VENDOR_INTEL	1
 #define CPU_VENDOR_AMD		2
 
+#define CPU_TIGERLAKE_MOBILE	140
+#define CPU_TIGERLAKE           141
 #define CPU_SANDYBRIDGE		42
 #define CPU_SANDYBRIDGE_EP	45
 #define CPU_IVYBRIDGE		58
@@ -219,6 +221,10 @@ static int detect_cpu(void) {
 		printf("Found ");
 
 		switch(model) {
+			case CPU_TIGERLAKE:
+		        case CPU_TIGERLAKE_MOBILE:
+				printf("Tigerlake");
+				break;
 			case CPU_SANDYBRIDGE:
 				printf("Sandybridge");
 				break;
@@ -368,6 +374,15 @@ static int rapl_msr(int core, int cpu_model) {
 
 	switch(cpu_model) {
 
+		case CPU_TIGERLAKE:
+	        case CPU_TIGERLAKE_MOBILE:
+			pp0_avail=1;
+			pp1_avail=0;
+			dram_avail=1;
+			different_units=0;
+			psys_avail=1;
+			break;
+
 		case CPU_SANDYBRIDGE_EP:
 		case CPU_IVYBRIDGE_EP:
 			pp0_avail=1;
@@ -500,7 +515,7 @@ static int rapl_msr(int core, int cpu_model) {
 
 
 		/* only available on *Bridge-EP */
-		if ((cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
+		if ((cpu_model==CPU_TIGERLAKE) || (cpu_model==CPU_SANDYBRIDGE_EP) || (cpu_model==CPU_IVYBRIDGE_EP)) {
 			result=read_msr(fd,MSR_PKG_PERF_STATUS);
 			double acc_pkg_throttled_time=(double)result*time_units;
 			printf("\tAccumulated Package Throttled Time : %.6fs\n",
